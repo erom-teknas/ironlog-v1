@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="IronLog"/>
+<meta name="theme-color" content="#0c0c12"/>
+<meta name="description" content="IronLog — Track. Lift. Grow."/>
+<title>IronLog</title>
+
+<!-- Apple touch icon -->
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='120' fill='%237C6EFA'/><text x='256' y='340' text-anchor='middle' font-size='280'>🏋️</text></svg>"/>
+
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{margin:0;padding:0;background:#0c0c12;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overscroll-behavior:none;}
+#root{min-height:100vh;min-height:-webkit-fill-available;min-height:100dvh;}
+
+/* ── Safe-area sizes as custom properties ── */
+:root{
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+}
+
+/* ── Top bar: sits at very top, pushes into safe area ── */
+.il-topbar{
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 430px;
+  z-index: 60;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* ── Scroll area: pushed below topbar ── */
+.il-scroll{
+  padding-top: calc(52px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  min-height: 100dvh;
+}
+
+/* ── Bottom nav bar ── */
+.il-nav{
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 430px;
+  z-index: 50;
+  padding-top: 10px;
+  padding-bottom: env(safe-area-inset-bottom, 10px);
+}
+
+/* Prevent iOS auto-zoom: all inputs must be >= 16px */
+input, select, textarea { font-size: 16px; }
+
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+input[type=number]{-moz-appearance:textfield;}
+::-webkit-scrollbar{display:none;}
+*{scrollbar-width:none;}
+</style>
+  <script type="module" crossorigin src="/assets/index-lEyQR4L6.js"></script>
+<link rel="manifest" href="/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script></head>
+<body>
+<div id="root"></div>
+</body>
+</html>

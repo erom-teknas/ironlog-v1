@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 *)",
+      "Bash(sed -n '210,2567p' /tmp/reconstructed_index.html)",
+      "Read(//tmp/**)",
+      "Bash(cp /tmp/App.jsx /Volumes/SSD250GB/Downloads/ironLog_v1/src/App.jsx)",
+      "Bash(cp /tmp/App.jsx /Users/teknas/Downloads/ironLog_v1/src/App.jsx)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(vercel --version)",
+      "Bash(vercel whoami *)",
+      "Bash(git -C /Volumes/SSD250GB/Downloads/ironLog_v1 status)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'Initial commit: IronLog PWA with Vite build *)"
+    ]
+  }
+}
