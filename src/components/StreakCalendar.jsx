@@ -95,10 +95,15 @@ export default function StreakCalendar({ hist, c }) {
       {/* Grid */}
       <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         <div style={{ minWidth: totalW + 24 }}>
-          {/* Month labels */}
-          <div style={{ display: 'flex', gap: GAP, paddingLeft: 0, marginBottom: 4, position: 'relative', height: 14 }}>
-            {months.map((m, i) => (
-              <div key={i} style={{ position: 'absolute', left: m.col * (CELL + GAP), fontSize: 9, color: c.sub, fontWeight: 700, whiteSpace: 'nowrap' }}>{m.label}</div>
+          {/* Month labels — skip if too close to previous */}
+          <div style={{ marginBottom: 4, position: 'relative', height: 14 }}>
+            {months.reduce((acc, m, i) => {
+              const x = m.col * (CELL + GAP);
+              const prev = acc[acc.length - 1];
+              if (prev && x - prev.x < 28) return acc;
+              return [...acc, { ...m, x }];
+            }, []).map((m, i) => (
+              <div key={i} style={{ position: 'absolute', left: m.x, fontSize: 9, color: c.sub, fontWeight: 700, whiteSpace: 'nowrap' }}>{m.label}</div>
             ))}
           </div>
           {/* Day rows */}
