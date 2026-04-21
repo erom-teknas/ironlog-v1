@@ -24,6 +24,7 @@ export const CC=["#7C6EFA","#34d399","#fbbf24","#f87171","#06b6d4","#ec4899","#a
 // Bar types: label, kg weight
 export const BAR_TYPES=[
   {id:"barbell",label:"Barbell",kg:20,lbEquiv:45},
+  {id:"smith",label:"Smith Machine",kg:4.1,lbEquiv:9},
   {id:"ez",label:"EZ Bar",kg:10,lbEquiv:25},
   {id:"dumbbell",label:"Dumbbell",kg:0,lbEquiv:0},
   {id:"none",label:"No Bar",kg:0,lbEquiv:0},

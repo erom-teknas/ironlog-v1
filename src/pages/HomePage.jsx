@@ -6,7 +6,8 @@ import MuscleMap from '../components/MuscleMap';
 import QRTransfer, { QRImportReceiver } from '../components/QRTransfer';
 import { IPlus, IGrid } from '../icons';
 
-export default function HomePage({hist,dark,c,unit="kg",onBlank,onRoutine,onBackup,onImport,onImportData,bwLog=[],onLogBW,gymPlates=[],onSetGymPlates,lastSnapshot="",customRoutines=[],customExercises={},reminderDays=0,onSetReminderDays}){
+export default function HomePage({hist,dark,c,unit="kg",onBlank,onRoutine,onBackup,onImport,onImportData,bwLog=[],onLogBW,gymPlates=[],onSetGymPlates,lastSnapshot="",customRoutines=[],customExercises={},reminderDays=0,onSetReminderDays,bwUnit,onSetBwUnit}){
+  const effectiveBwUnit=bwUnit||unit;
   const [showQR,setShowQR]=useState(false);
   const [showQRImport,setShowQRImport]=useState(false);
   const [bwInput,setBwInput]=useState("");
@@ -55,21 +56,28 @@ export default function HomePage({hist,dark,c,unit="kg",onBlank,onRoutine,onBack
         </CollapsibleSection>}
 
         {/* ── Body Weight Log ── */}
-        <CollapsibleSection title="Body Weight" icon="⚖️" sub={bwLog.length>0?"Latest: "+(unit==="lb"?Math.round(kgToLb(bwLog[bwLog.length-1].kg)*10)/10:bwLog[bwLog.length-1].kg)+unit:"Log your weight"} c={c}>
+        <CollapsibleSection title="Body Weight" icon="⚖️"
+          sub={<span style={{display:"flex",alignItems:"center",gap:6}}>
+            <span>{bwLog.length>0?"Latest: "+(effectiveBwUnit==="lb"?Math.round(kgToLb(bwLog[bwLog.length-1].kg)*10)/10:bwLog[bwLog.length-1].kg)+effectiveBwUnit:"Log your weight"}</span>
+            {onSetBwUnit&&<button onClick={e=>{e.stopPropagation();onSetBwUnit(effectiveBwUnit==="kg"?"lb":"kg");}}
+              style={{background:"rgba(124,110,250,0.15)",border:"1px solid rgba(124,110,250,0.3)",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:800,cursor:"pointer",color:"#b0a0ff",fontFamily:"inherit",lineHeight:1.5}}>
+              {effectiveBwUnit==="kg"?"→ lb":"→ kg"}
+            </button>}
+          </span>} c={c}>
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
             <input type="number" inputMode="decimal" value={bwInput} onChange={e=>setBwInput(e.target.value)}
-              placeholder={"Weight in "+(unit==="lb"?"lb":"kg")+"…"}
+              placeholder={"Weight in "+effectiveBwUnit+"…"}
               style={{flex:1,background:c.card2,border:"1.5px solid "+c.border,borderRadius:11,padding:"9px 12px",fontSize:14,color:c.text,outline:"none",fontFamily:"inherit"}}/>
             <button onClick={()=>{
               var n=parseFloat(bwInput);
-              var maxW=unit==="lb"?700:320;var minW=unit==="lb"?45:20;
+              var maxW=effectiveBwUnit==="lb"?700:320;var minW=effectiveBwUnit==="lb"?45:20;
               if(!n||n<minW||n>maxW){setBwInput("");return;}
-              onLogBW(unit==="lb"?Math.round(lbToKg(n)*100)/100:n);
+              onLogBW(effectiveBwUnit==="lb"?Math.round(lbToKg(n)*100)/100:n);
               setBwInput("");
             }} style={{background:c.accent,border:"none",borderRadius:11,padding:"9px 16px",fontSize:13,fontWeight:700,cursor:"pointer",color:"#fff",fontFamily:"inherit",flexShrink:0}}>Log</button>
           </div>
-          {bwInput&&(parseFloat(bwInput)<(unit==="lb"?44:20)||parseFloat(bwInput)>(unit==="lb"?700:320))&&
-            <div style={{fontSize:11,color:c.r,marginTop:5}}>Enter a valid weight ({unit==="lb"?"44–700 lb":"20–320 kg"})</div>
+          {bwInput&&(parseFloat(bwInput)<(effectiveBwUnit==="lb"?44:20)||parseFloat(bwInput)>(effectiveBwUnit==="lb"?700:320))&&
+            <div style={{fontSize:11,color:c.r,marginTop:5}}>Enter a valid weight ({effectiveBwUnit==="lb"?"44–700 lb":"20–320 kg"})</div>
           }
         </CollapsibleSection>
 

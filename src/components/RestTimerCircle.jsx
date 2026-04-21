@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import { hapticBeep, scheduleBeepsAt, cancelScheduledBeeps, resumeACtx } from '../hooks.jsx';
 
-export default function RestTimerCircle({c,timerSecs,timerStart,onCycle,onDone}){
+// memo prevents timer ticks (setNow every 250ms) from re-rendering the whole app
+const RestTimerCircle=memo(function RestTimerCircle({c,timerSecs,timerStart,onCycle,onDone}){
   const [now,setNow]=useState(()=>Date.now());
   const rafRef=useRef(null);
   // ALL hooks must be at the top — no hooks after conditional returns
@@ -56,4 +57,6 @@ export default function RestTimerCircle({c,timerSecs,timerStart,onCycle,onDone})
       <span style={{position:"relative",fontSize:done?13:10,fontWeight:800,color:done?c.g:c.accent,lineHeight:1,fontVariantNumeric:"tabular-nums"}}>{label}</span>
     </button>
   );
-}
+},(prev,next)=>prev.timerSecs===next.timerSecs&&prev.timerStart===next.timerStart&&prev.c===next.c);
+
+export default RestTimerCircle;

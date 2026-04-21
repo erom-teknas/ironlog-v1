@@ -1,7 +1,7 @@
 // IronLog Service Worker — cache-first + rest timer notifications
 // Must be served from /sw.js — iOS Safari blocks blob: URL workers
 
-var CACHE = 'ironlog-v8';
+var CACHE = 'ironlog-v9';
 var CDN_SCRIPTS = [
   'https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js',

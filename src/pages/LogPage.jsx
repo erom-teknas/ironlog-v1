@@ -27,12 +27,17 @@ function requestNotifPermission(){
   return Notification.requestPermission();
 }
 
+// ─── SET LABEL CONFIG ────────────────────────────────────────────────────────
+const SET_LABELS=["Working","Warm-up","Drop set"];
+function nextLabel(cur){const i=SET_LABELS.indexOf(cur||"Working");return SET_LABELS[(i+1)%SET_LABELS.length];}
+
 export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSave,
   draftExs,setDraftExs,draftRating,setDraftRating,draftNotes,setDraftNotes,
   draftT0,onDiscard,timerSecs,timerStart,lastTimerSecs=60,startTimer,cycleTimer,stopTimer,
   customExercises={},onAddCustomEx,onDeleteCustomEx,onRenameCustomEx,hist=[],gymPlates=[],bwLog=[],
-  restPresets={},onSaveRestPreset}){
-  // ALL hooks at top — no hooks after conditional returns (React rule #310)
+  restPresets={},onSaveRestPreset,
+  collapsedExs,setCollapsedExs}){
+  // ALL hooks at top — no hooks after conditional returns (React rule)
   const exs=draftExs, setExs=setDraftExs;
   const rating=draftRating, setRating=setDraftRating;
   const notes=draftNotes, setNotes=setDraftNotes;
@@ -69,8 +74,8 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
     acquire();
     return()=>{document.removeEventListener('visibilitychange',onVis);release();};
   },[]);
-  const [exAdvanced,setExAdvanced]=useState(new Set());
-  const [collapsedExs,setCollapsedExs]=useState(new Set()); // auto-collapsed when all sets done
+  // collapsedExs is now a PROP (lifted to App) so it persists across tab switches
+  const [exAdvanced,setExAdvanced]=useState(new Set()); // ⋯ expanded per exercise
   const [picker,setPicker]=useState(false);
   const [pm,setPm]=useState(MG[0]);
   const [search,setSearch]=useState("");
@@ -83,13 +88,13 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
   const [notifGranted,setNotifGranted]=useState(typeof Notification!=='undefined'&&Notification.permission==='granted');
 
   // ── Feature 1: last session lookup ────────────────────────────────────────
-  const lastSessionSets=(name)=>{
+  const lastSessionSets=useCallback((name)=>{
     for(var i=hist.length-1;i>=0;i--){
       var ex=hist[i].exercises.find(e=>e.name===name);
       if(ex&&ex.sets&&ex.sets.length)return ex.sets;
     }
     return null;
-  };
+  },[hist]);
 
   // ── Feature 3: overload indicator ─────────────────────────────────────────
   const overloadBadge=(ex)=>{
@@ -109,6 +114,7 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
   const inferBarType=(name)=>{
     var n=(name||"").toLowerCase();
     if(n.includes("pull-up")||n.includes("pullup")||n.includes("chin")||n.includes("push-up")||n.includes("pushup")||n.includes("plank")||n.includes("dip"))return"none";
+    if(n.includes("smith"))return"smith";
     if(n.includes("ez")||n.includes("skull"))return"ez";
     if(n.includes("dumbbell")||n.includes("db ")||n.includes(" db")||n.includes("cable")||n.includes("machine")||n.includes("lateral raise")||n.includes("fly")||(n.includes("curl")&&!n.includes("barbell")&&!n.includes("ez")))return"dumbbell";
     return"barbell";
@@ -118,7 +124,7 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
     var defaultBar=inferBarType(name);
     var sets=last
       ? last.map(s=>({id:uid(),reps:s.reps,weight:s.weight,done:false,bodyweight:s.bodyweight||false}))
-      : [{id:uid(),reps:"",weight:"",done:false,bodyweight:false}];
+      : [{id:uid(),reps:"",weight:"",done:false,bodyweight:false,label:"Working"}];
     setExs(p=>[...p,{id:uid(),name,muscle:pm,sets,bodyweight:false,barType:last?last[0].barType||defaultBar:defaultBar}]);
     haptic("medium");
     setPicker(false);setSearch("");
@@ -154,12 +160,12 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
       }
       return next;
     });
-  },[autoRest,timerSecs,lastTimerSecs,startTimer,notifGranted]);
+  },[autoRest,timerSecs,lastTimerSecs,startTimer,notifGranted,setCollapsedExs]);
   // addS copies last set's weight+reps (set copy feature)
   const addS=eid=>setExs(p=>p.map(e=>{
     if(e.id!==eid)return e;
     const l=e.sets[e.sets.length-1];
-    return{...e,sets:[...e.sets,{id:uid(),reps:l?l.reps:"",weight:l?l.weight:"",done:false,bodyweight:l?!!l.bodyweight:false,label:l&&l.label==="Working"?l.label:"Working"}]};
+    return{...e,sets:[...e.sets,{id:uid(),reps:l?l.reps:"",weight:l?l.weight:"",done:false,bodyweight:l?!!l.bodyweight:false,label:"Working"}]};
   }));
   const remS=(eid,sid)=>setExs(p=>p.map(e=>e.id!==eid?e:{...e,sets:e.sets.filter(s=>s.id!==sid)}));
   const remE=eid=>setExs(p=>p.filter(e=>e.id!==eid));
@@ -181,28 +187,40 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
   return(
     <div style={{paddingBottom:120}}>
       {confirmEl}
+      {/* ── Sticky workout header ── */}
       <div style={{background:c.bg,padding:"8px 16px 10px",borderBottom:"1px solid "+c.border}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-          <div style={{fontSize:11,color:c.sub,display:"flex",alignItems:"center",gap:5,fontVariantNumeric:"tabular-nums"}}>{el} elapsed · {doneCount}/{total} sets <Tip c={c} text="Elapsed time since you started this workout. Progress bar shows completed vs total sets."/></div>
+          <div style={{fontSize:11,color:c.sub,display:"flex",alignItems:"center",gap:5,fontVariantNumeric:"tabular-nums"}}>
+            <span style={{fontWeight:700,color:c.text,fontFamily:"monospace"}}>{el}</span>
+            <span>·</span>
+            <span>{doneCount}/{total} sets</span>
+          </div>
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
             <RestTimerCircle c={c} timerSecs={timerSecs} timerStart={timerStart} onCycle={cycleTimer} onDone={stopTimer}/>
-            {/* Auto-rest toggle */}
-            <button onClick={()=>setAutoRest(a=>!a)} title={autoRest?"Auto-rest ON: timer starts when you complete a set":"Auto-rest OFF: start timer manually"} style={{background:autoRest?c.accent+"22":c.card2,border:"1px solid "+(autoRest?c.accent:c.border),borderRadius:8,padding:"3px 7px",fontSize:9,fontWeight:700,cursor:"pointer",color:autoRest?c.accent:c.sub,fontFamily:"inherit",flexShrink:0,lineHeight:1.3}}>AUTO</button>
-            {!notifGranted&&'Notification' in window&&<button onClick={()=>requestNotifPermission().then(p=>{if(p==='granted')setNotifGranted(true);})} style={{background:c.card2,border:"1px solid "+c.border,borderRadius:8,padding:"3px 7px",fontSize:9,fontWeight:700,cursor:"pointer",color:c.sub,fontFamily:"inherit",flexShrink:0,lineHeight:1.3}} title="Enable notifications for rest timer">🔔</button>}
+            <button onClick={()=>setAutoRest(a=>!a)} title={autoRest?"Auto-rest ON":"Auto-rest OFF"}
+              style={{background:autoRest?c.accent+"22":c.card2,border:"1px solid "+(autoRest?c.accent:c.border),borderRadius:8,padding:"3px 7px",fontSize:9,fontWeight:700,cursor:"pointer",color:autoRest?c.accent:c.sub,fontFamily:"inherit",flexShrink:0,lineHeight:1.3}}>
+              AUTO
+            </button>
+            {!notifGranted&&'Notification' in window&&<button onClick={()=>requestNotifPermission().then(p=>{if(p==='granted')setNotifGranted(true);})}
+              style={{background:c.card2,border:"1px solid "+c.border,borderRadius:8,padding:"3px 7px",fontSize:9,fontWeight:700,cursor:"pointer",color:c.sub,fontFamily:"inherit",flexShrink:0,lineHeight:1.3}} title="Enable notifications">🔔</button>}
             <span style={{fontSize:11,color:c.sub,fontWeight:600}}>{fmtVol(unit==="lb"?Math.round(kgToLb(tv)):tv)} {unit}</span>
-            {exs.length>0&&!saved&&<button onClick={()=>dlgConfirm("Discard this workout?\nAll sets will be lost.").then(ok=>{if(ok)onDiscard();})} style={{background:c.rs,border:"none",borderRadius:8,padding:"3px 9px",fontSize:11,fontWeight:700,cursor:"pointer",color:c.r,fontFamily:"inherit"}}>Discard</button>}
+            {exs.length>0&&!saved&&<button onClick={()=>dlgConfirm("Discard this workout?\nAll sets will be lost.").then(ok=>{if(ok)onDiscard();})}
+              style={{background:c.rs,border:"none",borderRadius:8,padding:"3px 9px",fontSize:11,fontWeight:700,cursor:"pointer",color:c.r,fontFamily:"inherit"}}>Discard</button>}
           </div>
         </div>
         <div style={{height:3,background:c.muted,borderRadius:99,overflow:"hidden"}}>
           <div style={{height:"100%",background:c.accent,borderRadius:99,width:total?(doneCount/total*100)+"%":"0%",transition:"width .4s"}}/>
         </div>
       </div>
+
       <div style={{padding:"14px 16px 0"}}>
-        <div style={{display:"flex",gap:9,marginBottom:16,alignItems:"center"}}>
+        {/* ── Workout meta chips ── */}
+        <div style={{display:"flex",gap:8,marginBottom:16,alignItems:"center",flexWrap:"wrap"}}>
           <div style={{background:c.card2,border:"1px solid "+c.border,borderRadius:10,padding:"5px 12px",fontSize:12,color:c.sub,fontWeight:600}}>{fmtD(today())}</div>
           <div style={{background:c.card2,border:"1px solid "+c.border,borderRadius:10,padding:"5px 12px",fontSize:12,color:c.sub,fontWeight:600}}>{exs.length} exercise{exs.length!==1?"s":""}</div>
           <div style={{background:c.card2,border:"1px solid "+c.border,borderRadius:10,padding:"5px 12px",fontSize:12,color:c.sub,fontWeight:600}}>{fmtVol(unit==="lb"?Math.round(kgToLb(tv)):tv)} {unit}</div>
         </div>
+
         <DragSortList items={exs} onReorder={setExs} keyFn={ex=>ex.id} c={c} renderItem={(ex,_idx,dragHandle)=>{
           const latestBwKg=bwLog.length?(bwLog[bwLog.length-1].kg):0;
           const rm=bestRM(ex.sets,latestBwKg);
@@ -219,10 +237,12 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
           const exDone=totalSets>0&&doneSets===totalSets;
           const exInProgress=doneSets>0&&!exDone;
           const isCollapsed=collapsedExs.has(ex.id);
-          // Collapsed view for completed exercises
+          const showAdvanced=exAdvanced.has(ex.id); // ⋯ expanded
+
+          // ── Collapsed view for completed exercises ───────────────────────
           if(isCollapsed){return(<>
             <div onClick={()=>setCollapsedExs(prev=>{const s=new Set(prev);s.delete(ex.id);return s;})}
-              style={{background:c.gs,border:"1.5px solid "+c.g,borderRadius:20,padding:"12px 15px",marginBottom:13,display:"flex",alignItems:"center",gap:10,cursor:"pointer",opacity:0.8}}>
+              style={{background:c.gs,border:"1.5px solid "+c.g,borderRadius:20,padding:"12px 15px",marginBottom:13,display:"flex",alignItems:"center",gap:10,cursor:"pointer",opacity:0.85}}>
               <span style={{fontSize:16,flexShrink:0}}>✅</span>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontWeight:800,fontSize:14,color:c.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ex.name}</div>
@@ -236,67 +256,92 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
               <div style={{flex:1,height:2,background:"linear-gradient(to left,transparent,"+c.am+"88)"}}/>
             </div>}
           </>);}
-          const cardBorder=exDone?"1.5px solid "+c.g:exInProgress?"1.5px solid "+c.accent:"1px solid "+c.border;
+
+          const cardBorder=exDone?"1.5px solid "+c.g:exInProgress?"1.5px solid "+c.accent+"88":"1px solid "+c.border;
           const cardBg=exDone?c.gs:c.card;
           return(<>
             <div style={{background:cardBg,border:cardBorder,borderRadius:20,padding:15,marginBottom:13}}>
+              {/* ── Exercise header ── */}
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
                 {dragHandle}
                 <div style={{flex:1,minWidth:0,paddingRight:8}}>
                   <button onClick={()=>setFocusedExId(ex.id)} style={{background:"none",border:"none",padding:0,cursor:"pointer",textAlign:"left",width:"100%",fontFamily:"inherit"}}>
-                    <div style={{fontWeight:800,fontSize:15,color:c.text,wordBreak:"break-word"}}>{ex.name}
-                      <span style={{fontSize:10,color:c.accent,fontWeight:600,marginLeft:6}}>⤢ Focus</span>
+                    <div style={{fontWeight:800,fontSize:15,color:c.text,wordBreak:"break-word",display:"flex",alignItems:"center",gap:6}}>
+                      {ex.name}
+                      <span style={{fontSize:13,color:c.accent,flexShrink:0}} title="Focus mode">⤢</span>
                     </div>
                   </button>
                   <div style={{display:"flex",gap:7,marginTop:3,alignItems:"center",flexWrap:"wrap"}}>
                     <Pill label={ex.muscle} col={c.at} bg={c.as}/>
                     {!isBW&&rm>0&&<span style={{fontSize:11,color:c.sub}}>~1RM: <strong style={{color:c.text}}>{unit==="lb"?kgToLb(rm):rm}{unit}</strong></span>}
                     {badge&&<span style={{fontSize:11,fontWeight:700,color:badge.col}}>{badge.icon} {badge.text}</span>}
-                    {ex.progressionApplied&&<span style={{fontSize:10,fontWeight:700,color:c.g,background:c.gs,borderRadius:8,padding:"2px 7px"}}>📈 +{ex.progressionApplied}{unit} applied</span>}
+                    {ex.progressionApplied&&<span style={{fontSize:10,fontWeight:700,color:c.g,background:c.gs,borderRadius:8,padding:"2px 7px"}}>📈 +{ex.progressionApplied}{unit}</span>}
                     {ex.deloadApplied&&<span style={{fontSize:10,fontWeight:700,color:c.am,background:c.ams,borderRadius:8,padding:"2px 7px"}}>🔄 Deload -10%</span>}
                   </div>
                 </div>
                 <button onClick={()=>dlgConfirm("Remove "+ex.name+"?").then(ok=>{if(ok)remE(ex.id);})}
-                  style={{background:c.rs,border:"none",borderRadius:10,padding:"10px 12px",cursor:"pointer",color:c.r,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,minWidth:40,minHeight:40}}>
+                  style={{background:c.rs,border:"none",borderRadius:10,padding:"10px 12px",cursor:"pointer",color:c.r,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,minWidth:44,minHeight:44}}>
                   <ITrash/>
                 </button>
               </div>
+
               {/* Exercise history (last 3 sessions) */}
               <ExHistoryCard name={ex.name} hist={hist} unit={unit} c={c}/>
-              {/* Exercise notes / cues */}
-              {(exNotes[ex.id]!==undefined||false)&&<div style={{marginBottom:8}}>
+
+              {/* ── Per-exercise notes (only when ⋯ expanded) ── */}
+              {showAdvanced&&(exNotes[ex.id]!==undefined)&&<div style={{marginBottom:8}}>
                 <textarea value={exNotes[ex.id]||""} onChange={e2=>setExNotes(p=>({...p,[ex.id]:e2.target.value}))}
                   placeholder="Form cues, notes for this exercise…" rows={2}
                   style={{width:"100%",background:c.card2,border:"1.5px solid "+c.border,borderRadius:10,padding:"7px 10px",fontSize:12,color:c.text,fontFamily:"inherit",resize:"none",outline:"none",boxSizing:"border-box"}}/>
               </div>}
-              <div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap"}}>
-                <button onClick={()=>setExNotes(p=>({...p,[ex.id]:p[ex.id]!==undefined?undefined:""}))}
-                  style={{background:exNotes[ex.id]!==undefined?c.accent+"22":c.card2,border:"1px solid "+(exNotes[ex.id]!==undefined?c.accent:c.border),borderRadius:8,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer",color:exNotes[ex.id]!==undefined?c.accent:c.sub,fontFamily:"inherit"}}>
-                  {exNotes[ex.id]!==undefined?"✎ Notes":"+ Notes"}
-                </button>
-                {onSaveRestPreset&&<div style={{display:"flex",alignItems:"center",gap:2,background:c.card2,border:"1px solid "+c.border,borderRadius:8,padding:"2px 4px"}}>
-                  <button onClick={()=>{const cur=restPresets[ex.name]||lastTimerSecs;const next=Math.max(15,cur-15);onSaveRestPreset(ex.name,next);}} style={{background:"none",border:"none",cursor:"pointer",color:c.sub,fontSize:13,fontWeight:700,padding:"0 3px",lineHeight:1,fontFamily:"inherit"}}>−</button>
-                  <span style={{fontSize:10,fontWeight:700,color:c.accent,minWidth:26,textAlign:"center"}}>{restPresets[ex.name]||lastTimerSecs}s</span>
-                  <button onClick={()=>{const cur=restPresets[ex.name]||lastTimerSecs;onSaveRestPreset(ex.name,Math.min(600,cur+15));}} style={{background:"none",border:"none",cursor:"pointer",color:c.sub,fontSize:13,fontWeight:700,padding:"0 3px",lineHeight:1,fontFamily:"inherit"}}>+</button>
-                </div>}
-                <button onClick={()=>setExs(p=>p.map(x=>x.id!==ex.id?x:{...x,isSuperset:!x.isSuperset}))}
-                  style={{background:ex.isSuperset?c.am+"22":c.card2,border:"1px solid "+(ex.isSuperset?c.am:c.border),borderRadius:8,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer",color:ex.isSuperset?c.am:c.sub,fontFamily:"inherit"}}>
-                  {ex.isSuperset?"⚡ SS ON":"⚡ SS"}
-                </button>
-                <button onClick={()=>setExAdvanced(p=>{const s=new Set(p);s.has(ex.id)?s.delete(ex.id):s.add(ex.id);return s;})}
-                  style={{background:exAdvanced.has(ex.id)?c.accent+"22":c.card2,border:"1px solid "+(exAdvanced.has(ex.id)?c.accent:c.border),borderRadius:8,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer",color:exAdvanced.has(ex.id)?c.accent:c.sub,fontFamily:"inherit"}}>
-                  {exAdvanced.has(ex.id)?"Hide RPE/Tempo":"RPE/Tempo"}
-                </button>
-              </div>
-              {ex.isSuperset&&<div style={{fontSize:11,color:c.am,background:c.ams,borderRadius:8,padding:"5px 10px",marginBottom:8}}>⚡ Superset — no rest between this and the next exercise</div>}
-              {/* Controls row */}
-              <div style={{display:"flex",gap:7,marginBottom:9,alignItems:"center"}}>
+
+              {/* ── Controls row: essential controls always visible ── */}
+              <div style={{display:"flex",gap:6,marginBottom:8,alignItems:"center",flexWrap:"wrap"}}>
+                {/* Bar type selector (hidden for BW exercises) */}
                 {!isBW&&<select value={ex.barType||inferBarType(ex.name)} onChange={e=>setExs(p=>p.map(x=>x.id!==ex.id?x:{...x,barType:e.target.value}))}
-                  style={{background:c.card2,border:"1px solid "+c.border,borderRadius:8,padding:"5px 8px",fontSize:11,color:c.sub,fontFamily:"inherit",cursor:"pointer",flex:1}}>
+                  style={{background:c.card2,border:"1px solid "+c.border,borderRadius:8,padding:"6px 8px",fontSize:11,color:c.sub,fontFamily:"inherit",cursor:"pointer",flex:1,minWidth:0}}>
                   {BAR_TYPES.map(b=><option key={b.id} value={b.id}>{b.label}{b.kg>0?" ("+(unit==="lb"?b.lbEquiv:b.kg)+unit+")":""}</option>)}
                 </select>}
-                <button onClick={()=>toggleBW(ex.id)} style={{background:isBW?c.accent+"22":c.card2,border:"1px solid "+(isBW?c.accent:c.border),borderRadius:8,padding:"5px 12px",fontSize:11,fontWeight:700,cursor:"pointer",color:isBW?c.accent:c.sub,fontFamily:"inherit",flexShrink:0}}>{isBW?"✓ BW":"BW"}</button>
+                {/* BW toggle */}
+                <button onClick={()=>toggleBW(ex.id)}
+                  style={{background:isBW?c.accent+"22":c.card2,border:"1px solid "+(isBW?c.accent:c.border),borderRadius:8,padding:"6px 12px",fontSize:11,fontWeight:700,cursor:"pointer",color:isBW?c.accent:c.sub,fontFamily:"inherit",flexShrink:0,minHeight:36}}>
+                  {isBW?"✓ BW":"BW"}
+                </button>
+                {/* Superset toggle */}
+                <button onClick={()=>setExs(p=>p.map(x=>x.id!==ex.id?x:{...x,isSuperset:!x.isSuperset}))}
+                  style={{background:ex.isSuperset?c.am+"22":c.card2,border:"1px solid "+(ex.isSuperset?c.am:c.border),borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:700,cursor:"pointer",color:ex.isSuperset?c.am:c.sub,fontFamily:"inherit",flexShrink:0,minHeight:36}}>
+                  ⚡
+                </button>
+                {/* ⋯ More options toggle */}
+                <button onClick={()=>setExAdvanced(p=>{const s=new Set(p);s.has(ex.id)?s.delete(ex.id):s.add(ex.id);return s;})}
+                  style={{background:showAdvanced?c.accent+"22":c.card2,border:"1px solid "+(showAdvanced?c.accent:c.border),borderRadius:8,padding:"6px 10px",fontSize:13,fontWeight:700,cursor:"pointer",color:showAdvanced?c.accent:c.sub,fontFamily:"inherit",flexShrink:0,minHeight:36}}
+                  title="More options">
+                  ⋯
+                </button>
               </div>
+
+              {/* ── Expanded options (⋯) ── */}
+              {showAdvanced&&<div style={{background:c.card2,borderRadius:12,padding:"10px 12px",marginBottom:8,display:"flex",flexDirection:"column",gap:8}}>
+                {/* Notes */}
+                <button onClick={()=>setExNotes(p=>({...p,[ex.id]:p[ex.id]!==undefined?undefined:""}))}
+                  style={{background:exNotes[ex.id]!==undefined?c.accent+"22":c.card,border:"1px solid "+(exNotes[ex.id]!==undefined?c.accent:c.border),borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:700,cursor:"pointer",color:exNotes[ex.id]!==undefined?c.accent:c.sub,fontFamily:"inherit",textAlign:"left"}}>
+                  {exNotes[ex.id]!==undefined?"✎ Notes on":"+ Notes"}
+                </button>
+                {/* Rest timer adjust */}
+                {onSaveRestPreset&&<div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:11,color:c.sub,flex:1}}>Rest timer</span>
+                  <div style={{display:"flex",alignItems:"center",gap:4,background:c.card,border:"1px solid "+c.border,borderRadius:8,padding:"2px 6px"}}>
+                    <button onClick={()=>{const cur=restPresets[ex.name]||lastTimerSecs;onSaveRestPreset(ex.name,Math.max(15,cur-15));}} style={{background:"none",border:"none",cursor:"pointer",color:c.sub,fontSize:15,fontWeight:700,padding:"0 4px",lineHeight:1,fontFamily:"inherit",minHeight:28}}>−</button>
+                    <span style={{fontSize:11,fontWeight:700,color:c.accent,minWidth:30,textAlign:"center"}}>{restPresets[ex.name]||lastTimerSecs}s</span>
+                    <button onClick={()=>{const cur=restPresets[ex.name]||lastTimerSecs;onSaveRestPreset(ex.name,Math.min(600,cur+15));}} style={{background:"none",border:"none",cursor:"pointer",color:c.sub,fontSize:15,fontWeight:700,padding:"0 4px",lineHeight:1,fontFamily:"inherit",minHeight:28}}>+</button>
+                  </div>
+                </div>}
+                {/* RPE/Tempo toggle */}
+                <div style={{fontSize:11,color:c.sub}}>Tap the set number to cycle label: Working → Warm-up → Drop set</div>
+              </div>}
+
+              {ex.isSuperset&&<div style={{fontSize:11,color:c.am,background:c.ams,borderRadius:8,padding:"5px 10px",marginBottom:8}}>⚡ Superset — no rest between this and the next exercise</div>}
+
               {/* BW extra weight field */}
               {isBW&&<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:9,background:c.card2,borderRadius:10,padding:"8px 12px",flexWrap:"wrap"}}>
                 <span style={{fontSize:12,color:c.sub,flexShrink:0}}>Base: <strong style={{color:c.text}}>{bwLog.length>0?(unit==="lb"?Math.round(kgToLb(bwLog[bwLog.length-1].kg)*10)/10:bwLog[bwLog.length-1].kg):"??"}{unit}</strong></span>
@@ -306,45 +351,64 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
                 <span style={{fontSize:12,color:c.sub,flexShrink:0}}>{unit}</span>
                 {bwLog.length>0&&(parseFloat(ex.bwExtra)||0)>0&&<span style={{fontSize:11,color:c.accent,fontWeight:700,flexShrink:0}}>= {unit==="lb"?Math.round((kgToLb(bwLog[bwLog.length-1].kg)+(parseFloat(ex.bwExtra)||0))*10)/10:Math.round(((bwLog[bwLog.length-1]?.kg||0)+(parseFloat(ex.bwExtra)||0))*10)/10}{unit}</span>}
               </div>}
-              <div style={{display:"grid",gridTemplateColumns:isBW?"22px 1fr 38px":"22px 1fr 1fr 38px",gap:5,marginBottom:7}}>
-                {(isBW?["#","Reps","✓"]:["#",unit,"Reps","✓"]).map(h=><div key={h} style={{fontSize:10,color:c.sub,fontWeight:700,letterSpacing:"0.06em",textAlign:"center"}}>{h}</div>)}
+
+              {/* ── Column headers ── */}
+              <div style={{display:"grid",gridTemplateColumns:isBW?"36px 1fr 38px":"36px 1fr 1fr 38px",gap:5,marginBottom:7}}>
+                {(isBW?["","Reps","✓"]:["",unit,"Reps","✓"]).map((h,i)=><div key={i} style={{fontSize:10,color:c.sub,fontWeight:700,letterSpacing:"0.06em",textAlign:"center"}}>{h}</div>)}
               </div>
+
+              {/* ── Set rows ── */}
               {ex.sets.map((s,idx)=>{
                 const wDisp=!isBW?(parseFloat(unit==="lb"?fmtW(s.weight,"lb"):s.weight)||0):0;
                 const plates=(!isBW&&barKgForEx>0&&wDisp>(unit==="lb"?barDispForEx:barKgForEx))?calcPlates(wDisp,unit,unit==="lb"?barDispForEx:barKgForEx):[];
-                const setLabel=s.label;
-                const labelCol=setLabel==="Warm-up"?c.am:setLabel==="Drop set"?c.r:null;
+                const lbl=s.label||"Working";
+                const lblCol=lbl==="Warm-up"?c.am:lbl==="Drop set"?c.r:c.sub;
+                const lblBg=lbl==="Warm-up"?c.ams:lbl==="Drop set"?c.rs:"transparent";
                 return(
                   <div key={s.id}>
-                    {setLabel&&setLabel!=="Working"&&<div style={{fontSize:9,fontWeight:700,color:labelCol,letterSpacing:"0.06em",paddingLeft:28,marginBottom:2}}>{setLabel.toUpperCase()}</div>}
-                    <div style={{display:"grid",gridTemplateColumns:isBW?"22px 1fr 38px":"22px 1fr 1fr 38px",gap:5,marginBottom:plates.length?2:5,alignItems:"center",opacity:s.done?0.5:1,transition:"opacity .2s"}}>
-                      <div style={{textAlign:"center",fontSize:12,color:c.sub,fontWeight:700}}>{idx+1}</div>
+                    <div style={{display:"grid",gridTemplateColumns:isBW?"36px 1fr 38px":"36px 1fr 1fr 38px",gap:5,marginBottom:plates.length?2:5,alignItems:"center",opacity:s.done?0.55:1,transition:"opacity .2s"}}>
+                      {/* # cell — tap to cycle label when not done, tap to delete when done */}
+                      <button
+                        onClick={()=>s.done?remS(ex.id,s.id):upd(ex.id,s.id,"label",nextLabel(lbl))}
+                        title={s.done?"Tap to remove this set":"Tap to change set type: "+lbl}
+                        style={{background:s.done?c.rs:lblBg,border:"1px solid "+(s.done?c.r+"55":lbl!=="Working"?lblCol+"55":c.border+"55"),borderRadius:7,padding:"4px 2px",fontSize:s.done?12:10,fontWeight:700,color:s.done?c.r:lbl!=="Working"?lblCol:c.sub,cursor:"pointer",fontFamily:"inherit",textAlign:"center",lineHeight:1.2,minHeight:36,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                        {s.done?"×":(lbl==="Warm-up"?"W":lbl==="Drop set"?"D":(idx+1))}
+                      </button>
+                      {/* Weight cell */}
                       {!isBW&&<div style={{display:"flex",gap:3,alignItems:"center"}}>
                         <NIn value={s.weight&&parseFloat(s.weight)?fmtW(s.weight,unit):s.weight} onChange={v=>upd(ex.id,s.id,"weight",unit==="lb"&&v?String(storeW(v,"lb")):v)} c={c}/>
-                        <button onClick={()=>setPlatePickerFor({eid:ex.id,sid:s.id,cur:parseFloat(unit==="lb"?fmtW(s.weight,unit):s.weight)||0,barType:ex.barType||"barbell"})}
-                          style={{background:c.accent+"22",border:"1px solid "+c.accent+"55",borderRadius:8,padding:"8px 7px",cursor:"pointer",color:c.accent,fontSize:13,fontWeight:900,lineHeight:1,flexShrink:0}}>+</button>
+                        {/* + plate picker button — minimum 44px touch target */}
+                        <button onClick={()=>setPlatePickerFor({eid:ex.id,sid:s.id,cur:parseFloat(unit==="lb"?fmtW(s.weight,unit):s.weight)||0,barType:ex.barType||inferBarType(ex.name)})}
+                          style={{background:c.accent+"22",border:"1px solid "+c.accent+"55",borderRadius:8,padding:"0",cursor:"pointer",color:c.accent,fontSize:16,fontWeight:900,lineHeight:1,flexShrink:0,minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                          +
+                        </button>
                       </div>}
+                      {/* Reps cell */}
                       <NIn value={s.reps} onChange={v=>upd(ex.id,s.id,"reps",v)} c={c}/>
-                      <button onClick={()=>s.done?remS(ex.id,s.id):tog(ex.id,s.id)} style={{background:s.done?c.gs:c.card2,border:"1.5px solid "+(s.done?c.g:c.border),borderRadius:9,padding:8,cursor:"pointer",color:s.done?c.g:c.sub,display:"flex",alignItems:"center",justifyContent:"center",transition:"all .2s"}}>{s.done?<ICheck/>:<IX/>}</button>
+                      {/* Done toggle — ALWAYS toggles, never deletes */}
+                      <button onClick={()=>tog(ex.id,s.id)}
+                        style={{background:s.done?c.gs:c.card2,border:"1.5px solid "+(s.done?c.g:c.border),borderRadius:9,padding:8,cursor:"pointer",color:s.done?c.g:c.sub,display:"flex",alignItems:"center",justifyContent:"center",transition:"all .2s",minWidth:38,minHeight:44}}>
+                        {s.done?<ICheck/>:<IX/>}
+                      </button>
                     </div>
-                    {exAdvanced.has(ex.id)&&<div style={{display:"flex",gap:6,paddingLeft:27,paddingBottom:4,alignItems:"center"}}>
+                    {/* RPE/Tempo row (in expanded mode) */}
+                    {showAdvanced&&<div style={{display:"flex",gap:6,paddingLeft:41,paddingBottom:4,alignItems:"center"}}>
                       <input type="number" inputMode="decimal" min="1" max="10" value={s.rpe||""} onChange={e=>upd(ex.id,s.id,"rpe",e.target.value)}
                         placeholder="RPE" style={{width:52,background:c.card2,border:"1px solid "+c.border,borderRadius:7,padding:"4px 6px",fontSize:11,color:c.text,outline:"none",fontFamily:"inherit",textAlign:"center"}}/>
                       <input type="text" value={s.tempo||""} onChange={e=>upd(ex.id,s.id,"tempo",e.target.value)}
                         placeholder="Tempo" style={{width:66,background:c.card2,border:"1px solid "+c.border,borderRadius:7,padding:"4px 6px",fontSize:11,color:c.text,outline:"none",fontFamily:"inherit",textAlign:"center"}}/>
                       {(s.rpe||s.tempo)&&<span style={{fontSize:9,color:c.sub}}>{s.rpe?"RPE "+s.rpe:""}{s.rpe&&s.tempo?" · ":""}{s.tempo?s.tempo:""}</span>}
                     </div>}
-                    {plates.length>0&&!s.done&&<div style={{display:"flex",alignItems:"center",gap:3,paddingLeft:27,paddingBottom:6,flexWrap:"wrap"}}>
-                      {/* Left side plates */}
+                    {/* Plate visualization */}
+                    {plates.length>0&&!s.done&&<div style={{display:"flex",alignItems:"center",gap:3,paddingLeft:41,paddingBottom:6,flexWrap:"wrap"}}>
                       {plates.map((p,pi)=><span key={"L"+pi} style={{background:PCOL_USE[p]||"#555",color:"#fff",borderRadius:6,padding:"2px 7px",fontSize:10,fontWeight:800}}>{p}</span>)}
                       {barDispForEx>0&&<span style={{fontSize:10,color:c.sub,margin:"0 2px"}}>|{barDispForEx}{unit}|</span>}
-                      {/* Right side plates (reverse order — same as physical loading) */}
                       {[...plates].reverse().map((p,pi)=><span key={"R"+pi} style={{background:PCOL_USE[p]||"#555",color:"#fff",borderRadius:6,padding:"2px 7px",fontSize:10,fontWeight:800}}>{p}</span>)}
                     </div>}
                   </div>
                 );
               })}
-              <button onClick={()=>addS(ex.id)} style={{width:"100%",marginTop:5,background:"none",border:"1.5px dashed "+c.border,borderRadius:11,padding:"8px",fontSize:12,color:c.sub,cursor:"pointer",fontFamily:"inherit",fontWeight:700}}>+ Add set</button>
+              <button onClick={()=>addS(ex.id)} style={{width:"100%",marginTop:5,background:"none",border:"1.5px dashed "+c.border,borderRadius:11,padding:"9px",fontSize:12,color:c.sub,cursor:"pointer",fontFamily:"inherit",fontWeight:700}}>+ Add set</button>
             </div>
             {ex.isSuperset&&exs[_idx+1]&&<div style={{display:"flex",alignItems:"center",gap:8,margin:"-6px 16px 4px",position:"relative",zIndex:1}}>
               <div style={{flex:1,height:2,background:"linear-gradient(to right,transparent,"+c.am+"88)"}}/>
@@ -353,6 +417,7 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
             </div>}
           </>);
         }}/>
+
         <button onClick={()=>setPicker(true)} style={{width:"100%",background:"none",border:"2px dashed "+c.border,borderRadius:20,padding:17,fontSize:14,color:c.sub,cursor:"pointer",fontFamily:"inherit",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:7,marginBottom:16}}><IPlus/> Add Exercise</button>
         <PlateCalc c={c} unit={unit}/>
         {exs.length>0&&<div style={{background:c.card,border:"1px solid "+c.border,borderRadius:20,padding:16,marginBottom:16}}>
@@ -392,7 +457,7 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
               {isBW&&bwLog.length>0&&<div style={{background:c.card2,borderRadius:12,padding:"10px 14px",marginBottom:14,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                 <span style={{fontSize:13,color:c.sub,flexShrink:0}}>Base: <strong style={{color:c.text}}>{unit==="lb"?Math.round(kgToLb(bwLog[bwLog.length-1].kg)*10)/10:bwLog[bwLog.length-1].kg}{unit}</strong></span>
                 <span style={{fontSize:13,color:c.sub,flexShrink:0}}>+ Extra:</span>
-                <input type="number" inputMode="decimal" value={ex.bwExtra||""} placeholder="0"
+                <input type="number" inputMode="decimal" value={ex.bwExtra||""}  placeholder="0"
                   onChange={e=>setExs(p=>p.map(x=>x.id!==ex.id?x:{...x,bwExtra:e.target.value}))}
                   style={{background:c.card,border:"1.5px solid "+c.border,borderRadius:9,padding:"8px 10px",fontSize:15,color:c.text,outline:"none",width:80,textAlign:"center",fontFamily:"inherit"}}/>
                 <span style={{fontSize:13,color:c.sub,flexShrink:0}}>{unit}</span>
@@ -401,11 +466,20 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
               {ex.sets.map((s,idx)=>{
                 const wDisp2=!isBW?(parseFloat(unit==="lb"?fmtW(s.weight,unit):s.weight)||0):0;
                 const plates2=(!isBW&&barKgF>0&&wDisp2>barDispF)?calcPlates(wDisp2,unit,unit==="lb"?barDispF:barKgF):[];
+                const lbl2=s.label||"Working";
+                const lblCol2=lbl2==="Warm-up"?c.am:lbl2==="Drop set"?c.r:c.sub;
                 return(
                   <div key={s.id} style={{background:s.done?c.gs:c.card,border:"2px solid "+(s.done?c.g:c.border),borderRadius:20,padding:"16px",marginBottom:14,transition:"all .2s"}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,gap:8}}>
-                      <span style={{fontSize:13,fontWeight:700,color:s.done?c.g:c.sub,flexShrink:0}}>SET {idx+1}{s.label&&s.label!=="Working"?" · "+s.label:""}</span>
-                      <button onClick={()=>s.done?remS(ex.id,s.id):tog(ex.id,s.id)}
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <span style={{fontSize:13,fontWeight:700,color:s.done?c.g:c.sub,flexShrink:0}}>SET {idx+1}</span>
+                        {/* Label cycle button */}
+                        <button onClick={()=>upd(ex.id,s.id,"label",nextLabel(lbl2))}
+                          style={{background:lbl2==="Warm-up"?c.ams:lbl2==="Drop set"?c.rs:c.card2,border:"1px solid "+(lbl2==="Warm-up"?c.am:lbl2==="Drop set"?c.r:c.border)+"55",borderRadius:8,padding:"3px 8px",fontSize:10,fontWeight:700,cursor:"pointer",color:lblCol2,fontFamily:"inherit",minHeight:28}}>
+                          {lbl2}
+                        </button>
+                      </div>
+                      <button onClick={()=>tog(ex.id,s.id)}
                         style={{background:s.done?c.g:c.accent,border:"none",borderRadius:12,padding:"12px 18px",fontSize:14,fontWeight:900,cursor:"pointer",color:"#fff",fontFamily:"inherit",minHeight:44,flexShrink:0}}>
                         {s.done?"✓ Done":"Mark Done"}
                       </button>
@@ -419,13 +493,11 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
                             onChange={v=>upd(ex.id,s.id,"weight",unit==="lb"&&v.target.value?String(storeW(v.target.value,"lb")):v.target.value)}
                             style={{flex:1,minWidth:0,background:c.card2,border:"2px solid "+c.border,borderRadius:12,padding:"14px 6px",fontSize:22,fontWeight:800,color:c.text,outline:"none",textAlign:"center",fontFamily:"inherit",boxSizing:"border-box"}}/>
                           <button onClick={()=>setPlatePickerFor({eid:ex.id,sid:s.id,cur:parseFloat(unit==="lb"?fmtW(s.weight,unit):s.weight)||0,barType:ex.barType||"barbell"})}
-                            style={{background:c.accent,border:"none",borderRadius:12,padding:"14px 14px",fontSize:20,fontWeight:900,cursor:"pointer",color:"#fff",flexShrink:0,minHeight:44}}>+</button>
+                            style={{background:c.accent,border:"none",borderRadius:12,padding:"14px 14px",fontSize:20,fontWeight:900,cursor:"pointer",color:"#fff",flexShrink:0,minHeight:44,minWidth:44}}>+</button>
                         </div>
                         {plates2.length>0&&<div style={{display:"flex",gap:4,marginTop:8,flexWrap:"wrap",alignItems:"center"}}>
-                          {/* Left side */}
                           {plates2.map((p,pi)=><div key={"L"+pi} style={{width:32,height:32,borderRadius:"50%",background:(unit==="lb"?PCOL_LB:PCOL)[p]||"#555",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:10,fontWeight:900,flexShrink:0}}>{p}</div>)}
                           {barKgF>0&&<span style={{fontSize:10,color:c.sub,margin:"0 2px",fontWeight:700}}>|{barDispF}{unit}|</span>}
-                          {/* Right side (reversed) */}
                           {[...plates2].reverse().map((p,pi)=><div key={"R"+pi} style={{width:32,height:32,borderRadius:"50%",background:(unit==="lb"?PCOL_LB:PCOL)[p]||"#555",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:10,fontWeight:900,flexShrink:0}}>{p}</div>)}
                         </div>}
                       </div>
@@ -440,6 +512,8 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
                       <input type="number" inputMode="numeric" value={s.reps} onChange={v=>upd(ex.id,s.id,"reps",v.target.value)}
                         style={{width:"100%",background:c.card2,border:"2px solid "+c.border,borderRadius:12,padding:"14px 6px",fontSize:22,fontWeight:800,color:c.text,outline:"none",textAlign:"center",fontFamily:"inherit",boxSizing:"border-box"}}/>
                     </div>}
+                    {/* Delete done set button */}
+                    {s.done&&<button onClick={()=>remS(ex.id,s.id)} style={{width:"100%",background:"none",border:"1px solid "+c.border,borderRadius:10,padding:"6px",fontSize:11,color:c.sub,cursor:"pointer",fontFamily:"inherit",marginTop:4}}>Remove this set</button>}
                   </div>
                 );
               })}
@@ -454,8 +528,8 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
         const PCOL_USE2=unit==="lb"?PCOL_LB:PCOL;
         const barType=BAR_TYPES.find(b=>b.id===platePickerFor.barType)||BAR_TYPES[0];
         const barDisp=unit==="lb"?barType.lbEquiv:barType.kg;
-        // Default perSide = true only for barbell/EZ bar — cables/machines are single
-        const defaultPerSide=barType.id==="barbell"||barType.id==="ez";
+        // Default perSide = true only for barbell/EZ/smith
+        const defaultPerSide=barType.id==="barbell"||barType.id==="ez"||barType.id==="smith";
         const [perSide,setPerSide]=platePickerFor._perSide!==undefined
           ?[platePickerFor._perSide,(v)=>setPlatePickerFor(prev=>({...prev,_perSide:v}))]
           :[defaultPerSide,(v)=>setPlatePickerFor(prev=>({...prev,_perSide:v}))];
@@ -465,13 +539,9 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
         const plateList=gymPlates.length>0
           ?gymPlates.map(p=>unit==="lb"?Math.round(kgToLb(p)*4)/4:p)
           :(unit==="lb"?PLATES_LB:PLATES_KG);
-        // cur = bar + plates total (same unit as display).
-        // If weight was 0 and bar exists, start at barDisp so first plate tap gives correct total.
         const rawCur=platePickerFor.cur;
         const cur=rawCur<=0&&barDisp>0?barDisp:rawCur;
         const multiplier=perSide?2:1;
-        // plateWeight = weight stored in the field = cur (bar+plates total)
-        // adding a plate of size p: new total = cur + p*multiplier
         const addPlate=(p)=>{
           const newVal=Math.round((cur+p*multiplier)*1000)/1000;
           const stored=unit==="lb"?String(storeW(newVal,"lb")):String(newVal);
@@ -479,7 +549,6 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
           setPlatePickerFor(prev=>({...prev,cur:newVal}));
         };
         const removePlate=(p)=>{
-          // Don't go below bar weight
           const floor=barDisp>0?barDisp:0;
           const newVal=Math.max(floor,Math.round((cur-p*multiplier)*1000)/1000);
           const stored=unit==="lb"?String(storeW(newVal,"lb")):String(newVal);
@@ -492,22 +561,21 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
           addPlate(v);
           setPlatePickerFor(prev=>({...prev,_cpi:""}));
         };
-        // Plates currently loaded (for display): decompose cur - bar
         const platesSoFar=barDisp>0&&cur>barDisp?calcPlates(cur,unit,unit==="lb"?barType.lbEquiv:barType.kg):[];
         const FALLBACK_COLS=["#ef4444","#3b82f6","#f59e0b","#22c55e","#8b5cf6","#ec4899","#94a3b8","#f97316","#06b6d4","#84cc16","#a78bfa","#fb7185","#34d399","#fbbf24","#60a5fa"];
         return(
           <div onClick={()=>setPlatePickerFor(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:400,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-            <div onClick={e=>e.stopPropagation()} style={{background:c.card,borderRadius:"26px 26px 0 0",padding:"20px 18px 0",width:"100%",maxWidth:430,boxSizing:"border-box",maxHeight:"75vh",overflowY:"auto",WebkitOverflowScrolling:"touch",paddingBottom:"calc(env(safe-area-inset-bottom,0px) + 20px)"}}>
+            <div onClick={e=>e.stopPropagation()} style={{background:c.card,borderRadius:"26px 26px 0 0",padding:"20px 18px 0",width:"100%",maxWidth:430,boxSizing:"border-box",maxHeight:"80vh",overflowY:"auto",WebkitOverflowScrolling:"touch",paddingBottom:"calc(env(safe-area-inset-bottom,0px) + 24px)"}}>
               {/* Header */}
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
                 <div style={{fontWeight:900,fontSize:17,color:c.text}}>Add Weight</div>
-                <button onClick={()=>setPlatePickerFor(null)} style={{background:c.card2,border:"none",borderRadius:9,padding:"8px 14px",cursor:"pointer",color:c.sub,fontFamily:"inherit",fontSize:13,fontWeight:700,minHeight:44}}>Done</button>
+                <button onClick={()=>setPlatePickerFor(null)} style={{background:c.card2,border:"none",borderRadius:9,padding:"8px 16px",cursor:"pointer",color:c.sub,fontFamily:"inherit",fontSize:13,fontWeight:700,minHeight:44}}>Done</button>
               </div>
-              {/* Total display — cur = bar + plates */}
-              <div style={{background:c.card2,borderRadius:12,padding:"10px 14px",marginBottom:12}}>
-                <div style={{fontSize:12,color:c.sub,marginBottom:4}}>Total weight on bar</div>
-                <div style={{fontSize:22,fontWeight:900,color:c.text}}>{cur}{unit}</div>
-                {barDisp>0&&<div style={{fontSize:11,color:c.sub,marginTop:3,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+              {/* Total display */}
+              <div style={{background:c.card2,borderRadius:14,padding:"12px 16px",marginBottom:14}}>
+                <div style={{fontSize:12,color:c.sub,marginBottom:2}}>Total weight on bar</div>
+                <div style={{fontSize:28,fontWeight:900,color:c.text,lineHeight:1}}>{cur}<span style={{fontSize:14,fontWeight:600,color:c.sub,marginLeft:4}}>{unit}</span></div>
+                {barDisp>0&&<div style={{fontSize:11,color:c.sub,marginTop:4,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                   <span>{barDisp}{unit} bar</span>
                   {platesSoFar.length>0&&<>
                     <span>+</span>
@@ -519,47 +587,48 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
               {/* Per-side toggle */}
               <div style={{display:"flex",gap:8,marginBottom:14,alignItems:"center",background:c.card2,borderRadius:12,padding:"8px 12px"}}>
                 <span style={{fontSize:12,color:c.sub,flex:1}}>
-                  {perSide?"× 2 (one plate per side — barbell)":"× 1 (single — cable / machine / dumbbell)"}
+                  {perSide?"Each plate added × 2 (one per side)":"Each plate added × 1 (single side)"}
                 </span>
-                <button onClick={()=>setPerSide(!perSide)} style={{background:perSide?c.accent:c.card,border:"1px solid "+c.border,borderRadius:9,padding:"5px 12px",fontSize:11,fontWeight:700,cursor:"pointer",color:perSide?"#fff":c.sub,fontFamily:"inherit",flexShrink:0,minHeight:36}}>
-                  {perSide?"÷2 → Single":"×2 → Per side"}
+                <button onClick={()=>setPerSide(!perSide)} style={{background:perSide?c.accent:c.card,border:"1px solid "+c.border,borderRadius:9,padding:"5px 12px",fontSize:11,fontWeight:700,cursor:"pointer",color:perSide?"#fff":c.sub,fontFamily:"inherit",flexShrink:0,minHeight:44}}>
+                  {perSide?"Per side":"Single"}
                 </button>
               </div>
-              {/* Plate circles */}
-              <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center",marginBottom:14}}>
+              {/* Plate circles — larger for easier tapping */}
+              <div style={{display:"flex",gap:10,flexWrap:"wrap",justifyContent:"center",marginBottom:16}}>
                 {plateList.map((p,i)=>(
-                  <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                  <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5}}>
                     <button onClick={()=>addPlate(p)}
-                      style={{width:56,height:56,borderRadius:"50%",background:PCOL_USE2[p]||FALLBACK_COLS[i%FALLBACK_COLS.length],border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:13,fontWeight:900,boxShadow:"0 3px 10px rgba(0,0,0,0.25)",flexShrink:0}}>
+                      style={{width:62,height:62,borderRadius:"50%",background:PCOL_USE2[p]||FALLBACK_COLS[i%FALLBACK_COLS.length],border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:13,fontWeight:900,boxShadow:"0 4px 12px rgba(0,0,0,0.3)",flexShrink:0}}>
                       {p}
                     </button>
                     <button onClick={()=>removePlate(p)}
-                      style={{background:c.card2,border:"1px solid "+c.border,borderRadius:7,padding:"3px 10px",fontSize:11,cursor:"pointer",color:c.sub,fontFamily:"inherit",minHeight:28}}>−</button>
+                      style={{background:c.card2,border:"1px solid "+c.border,borderRadius:8,padding:"4px 12px",fontSize:12,cursor:"pointer",color:c.sub,fontFamily:"inherit",minHeight:32,minWidth:44}}>−</button>
                   </div>
                 ))}
               </div>
               {/* Custom plate input */}
-              <div style={{display:"flex",gap:8,marginBottom:10,alignItems:"center"}}>
+              <div style={{display:"flex",gap:8,marginBottom:12,alignItems:"center"}}>
                 <input type="number" inputMode="decimal" value={customPlateInput} onChange={e=>setCustomPlateInput(e.target.value)}
                   onKeyDown={e=>{if(e.key==="Enter")addCustom();}}
                   placeholder={"Custom weight ("+unit+")…"}
-                  style={{flex:1,background:c.card2,border:"1.5px solid "+c.border,borderRadius:11,padding:"9px 12px",fontSize:13,color:c.text,outline:"none",fontFamily:"inherit"}}/>
-                <button onClick={addCustom} disabled={!parseFloat(customPlateInput)} style={{background:c.accent,border:"none",borderRadius:11,padding:"9px 16px",fontSize:13,fontWeight:700,cursor:"pointer",color:"#fff",fontFamily:"inherit",flexShrink:0,opacity:parseFloat(customPlateInput)?1:0.4}}>Add</button>
+                  style={{flex:1,background:c.card2,border:"1.5px solid "+c.border,borderRadius:11,padding:"10px 12px",fontSize:13,color:c.text,outline:"none",fontFamily:"inherit"}}/>
+                <button onClick={addCustom} disabled={!parseFloat(customPlateInput)}
+                  style={{background:c.accent,border:"none",borderRadius:11,padding:"10px 18px",fontSize:13,fontWeight:700,cursor:"pointer",color:"#fff",fontFamily:"inherit",flexShrink:0,opacity:parseFloat(customPlateInput)?1:0.4,minHeight:44}}>Add</button>
               </div>
               <button onClick={()=>{
-                // Clear plates but keep bar weight in field
                 const clearVal=barDisp>0?barDisp:0;
                 const stored=unit==="lb"?String(storeW(clearVal,"lb")):String(clearVal);
                 upd(platePickerFor.eid,platePickerFor.sid,"weight",stored);
                 setPlatePickerFor(prev=>({...prev,cur:clearVal}));
-              }} style={{width:"100%",background:c.rs,border:"none",borderRadius:12,padding:"11px",fontSize:13,fontWeight:700,cursor:"pointer",color:c.r,fontFamily:"inherit",marginBottom:4}}>Clear plates (keep bar)</button>
+              }} style={{width:"100%",background:c.rs,border:"none",borderRadius:12,padding:"12px",fontSize:13,fontWeight:700,cursor:"pointer",color:c.r,fontFamily:"inherit",marginBottom:4}}>Clear plates (keep bar)</button>
             </div>
           </div>
         );
       })()}
 
+      {/* ── Add Exercise Picker ── */}
       {picker&&<div onClick={()=>{setPicker(false);setSearch("");setNewExName("");setEditingEx(null);}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.65)",zIndex:100,display:"flex",alignItems:"flex-end"}}>
-        <div onClick={e=>e.stopPropagation()} style={{background:c.card,borderRadius:"26px 26px 0 0",padding:"22px 16px 48px",width:"100%",maxHeight:"82vh",overflowY:"auto",boxSizing:"border-box"}}>
+        <div onClick={e=>e.stopPropagation()} style={{background:c.card,borderRadius:"26px 26px 0 0",padding:"22px 16px",paddingBottom:"calc(env(safe-area-inset-bottom,0px) + 48px)",width:"100%",maxHeight:"82vh",overflowY:"auto",WebkitOverflowScrolling:"touch",boxSizing:"border-box"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
             <h3 style={{margin:0,fontSize:19,fontWeight:900,color:c.text}}>Add Exercise</h3>
             <button onClick={()=>{setPicker(false);setSearch("");setNewExName("");setEditingEx(null);}} style={{background:c.card2,border:"none",borderRadius:9,padding:8,cursor:"pointer",color:c.sub,display:"flex"}}><IX/></button>

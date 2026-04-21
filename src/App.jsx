@@ -90,6 +90,10 @@ function App(){
   useEffect(()=>{const mq=window.matchMedia("(prefers-color-scheme: dark)");const h=e=>setSysDark(e.matches);mq.addEventListener("change",h);return()=>mq.removeEventListener("change",h);},[]);
   const effectiveDark=dark==="auto"?sysDark:(dark==="oled"?true:dark);
   const [unit,setUnit]=useState(()=>lsGet("il_unit","kg"));
+  // ── Body weight unit — independent of lifting unit ────────────────────────
+  const [bwUnit,setBwUnit]=useState(()=>lsGet("il_bw_unit",null)); // null = follow global unit
+  const effectiveBwUnit=bwUnit||unit; // falls back to global unit if not set
+  useEffect(()=>{if(bwUnit)lsSet("il_bw_unit",bwUnit);},[bwUnit]);
   const [hist,setHist]=useState(()=>lsGet("il_v4",[]));
   const [logInit,setLogInit]=useState(null);
   const [logName,setLogName]=useState("");
@@ -105,6 +109,8 @@ function App(){
   const [draftNotes,setDraftNotes]=useState("");
   const draftT0=useRef(Date.now());
   const hasDraft=draftExs.length>0;
+  // ── Collapsed exercises state lifted so it persists across tab switches ───
+  const [collapsedExs,setCollapsedExs]=useState(new Set());
   // ── Timer state — lifted so it survives tab switches, timestamp-based for screen lock ──
   const [timerSecs,setTimerSecs]=useState(()=>{const t=lsGet("il_timer",null);if(t&&t.secs>0&&t.start>0&&(Date.now()-t.start)<t.secs*1000)return t.secs;return 0;});
   const [timerStart,setTimerStart]=useState(()=>{const t=lsGet("il_timer",null);if(t&&t.secs>0&&t.start>0&&(Date.now()-t.start)<t.secs*1000)return t.start;return 0;});
@@ -174,7 +180,7 @@ function App(){
   useEffect(()=>{idbSet("il_dark",dark);lsSet("il_dark",dark);},[dark]);
   useEffect(()=>{idbSet("il_unit",unit);try{localStorage.setItem("il_unit",JSON.stringify(unit));}catch(e){};},[unit]);
   const [milestone,setMilestone]=useState(null);
-  const clearDraft=()=>{setDraftExs([]);setDraftRating(0);setDraftNotes("");setLogName("");setLogInit(null);draftT0.current=Date.now();idbSet("il_draft",null);};
+  const clearDraft=()=>{setDraftExs([]);setDraftRating(0);setDraftNotes("");setLogName("");setLogInit(null);setCollapsedExs(new Set());draftT0.current=Date.now();idbSet("il_draft",null);};
   const saveW=w=>{
     setHist(p=>{
       const next=[...p,w];
@@ -342,9 +348,9 @@ function App(){
     reader.onload=ev=>{
       try{
         const SAFE_KEYS=/^[a-zA-Z0-9_ -]{1,80}$/; // allowlist for string keys from user data
-        const safeStr=(v,max=200)=>typeof v==="string"?v.replace(/[<>]/g,"").slice(0,max):"";
-        const safeNum=(v)=>{ var n=parseFloat(v); return isFinite(n)?n:0; };
-        const safeInt=(v)=>{ var n=parseInt(v,10); return isFinite(n)?n:0; };
+        const safeStr=(v,max=200)=>typeof v==="string"?v.replace(/[<>]/g,"").replace(/[\r\n\t]/g," ").slice(0,max).trim():"";
+        const safeNum=(v,min=-1e9,max=1e9)=>{ var n=parseFloat(v); return isFinite(n)?Math.min(max,Math.max(min,n)):0; };
+        const safeInt=(v,min=0,max=1e6)=>{ var n=parseInt(v,10); return isFinite(n)?Math.min(max,Math.max(min,n)):0; };
         const safeBool=(v)=>!!v;
         const sanitizeSet=(s)=>({
           id:safeStr(s.id)||uid(),
@@ -360,7 +366,7 @@ function App(){
           muscle:MG.includes(ex.muscle)?ex.muscle:"",
           sets:Array.isArray(ex.sets)?ex.sets.map(sanitizeSet):[],
           bodyweight:safeBool(ex.bodyweight),
-          barType:["barbell","ez","dumbbell","none"].includes(ex.barType)?ex.barType:"barbell",
+          barType:["barbell","smith","ez","dumbbell","none"].includes(ex.barType)?ex.barType:"barbell",
           bwExtra:safeStr(ex.bwExtra,10),
           isSuperset:safeBool(ex.isSuperset),
         });
@@ -370,8 +376,8 @@ function App(){
           name:safeStr(w.name,200),
           exercises:Array.isArray(w.exercises)?w.exercises.map(sanitizeEx):[],
           notes:safeStr(w.notes,1000),
-          rating:safeInt(w.rating),
-          duration:safeInt(w.duration),
+          rating:safeInt(w.rating,0,5),
+          duration:safeInt(w.duration,0,86400),
         });
 
         const raw=JSON.parse(ev.target.result);
@@ -588,7 +594,7 @@ function App(){
         </div>}
         <div key={tab} className={tabDirRef.current==="r"?"il-enter-r":"il-enter-l"}>
           {!loaded&&<SkeletonPage/>}
-          {loaded&&tab==="home"&&<HomePageM hist={hist} dark={dark} c={c} unit={unit} onBlank={blank} onRoutine={()=>setTab("routines")} onBackup={doBackup} onImport={importBackup} onImportData={importBackup} bwLog={bwLog} onLogBW={logBW} gymPlates={gymPlates} onSetGymPlates={setGymPlates} lastSnapshot={lastSnapshot} customRoutines={customRoutines} customExercises={customExercises} reminderDays={reminderDays} onSetReminderDays={setReminderDays}/>}
+          {loaded&&tab==="home"&&<HomePageM hist={hist} dark={dark} c={c} unit={unit} onBlank={blank} onRoutine={()=>setTab("routines")} onBackup={doBackup} onImport={importBackup} onImportData={importBackup} bwLog={bwLog} onLogBW={logBW} gymPlates={gymPlates} onSetGymPlates={setGymPlates} lastSnapshot={lastSnapshot} customRoutines={customRoutines} customExercises={customExercises} reminderDays={reminderDays} onSetReminderDays={setReminderDays} bwUnit={effectiveBwUnit} onSetBwUnit={setBwUnit}/>}
           {loaded&&tab==="log"&&<LogPageM
             initial={logInit} c={c} unit={unit} logName={logName} finishRef={logFinishRef} onSave={saveW}
             draftExs={draftExs} setDraftExs={setDraftExs}
@@ -601,9 +607,10 @@ function App(){
             customExercises={customExercises} onAddCustomEx={addCustomExercise} onDeleteCustomEx={deleteCustomExercise} onRenameCustomEx={renameCustomExercise}
             hist={hist} gymPlates={gymPlates} bwLog={bwLog}
             restPresets={restPresets} onSaveRestPreset={saveRestPreset}
+            collapsedExs={collapsedExs} setCollapsedExs={setCollapsedExs}
           />}
           {loaded&&tab==="history"&&<HistoryPageM hist={hist} c={c} unit={unit} onDelete={delW} onExportCSV={exportCSV} onRepeat={repeatW} bwKg={bwLog.length?bwLog[bwLog.length-1].kg:0}/>}
-          {loaded&&tab==="progress"&&<ProgressPageM hist={hist} c={c} unit={unit} bwLog={bwLog} onLogBW={logBW} onDeleteBW={deleteBW} customExercises={customExercises} measLog={measLog} onLogMeas={logMeas} onDeleteMeas={deleteMeas} bwKg={bwLog.length?bwLog[bwLog.length-1].kg:0}/>}
+          {loaded&&tab==="progress"&&<ProgressPageM hist={hist} c={c} unit={unit} bwLog={bwLog} onLogBW={logBW} onDeleteBW={deleteBW} customExercises={customExercises} measLog={measLog} onLogMeas={logMeas} onDeleteMeas={deleteMeas} bwKg={bwLog.length?bwLog[bwLog.length-1].kg:0} bwUnit={effectiveBwUnit} onSetBwUnit={setBwUnit}/>}
           {loaded&&tab==="prs"&&<PRsPageM hist={hist} c={c} unit={unit} bwKg={bwLog.length?bwLog[bwLog.length-1].kg:0}/>}
           {loaded&&tab==="routines"&&<RoutinesPageM c={c} unit={unit} onUse={useTmpl} customRoutines={customRoutines} onSaveCustom={saveCustomRoutine} onDeleteCustom={deleteCustomRoutine} customExercises={customExercises} onAddCustomEx={addCustomExercise} onDeleteCustomEx={deleteCustomExercise} onRenameCustomEx={renameCustomExercise}/>}
           {loaded&&tab==="help"&&<HelpPageM c={c} onStartTour={startTour}/>}

@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
 import { MG, CC } from '../constants';
-import { calcVol, bestRM, kgToLb, weekKey, fmtD } from '../utils';
+import { calcVol, bestRM, kgToLb, weekKey, fmtD, getStreak } from '../utils';
 import { ITrash, IScale, ITrendUp, IBarChart, IClock, IFlame, IRuler } from '../icons';
 import { Empty } from '../components/Primitives';
 import CollapsibleSection from '../components/CollapsibleSection';
 import WeightChart from '../components/WeightChart';
 import MuscleVolumeTrend from '../components/MuscleVolumeTrend';
 import CalendarCard from '../components/CalendarCard';
-import StreakCalendar from '../components/StreakCalendar';
 import StrengthStandards from '../components/StrengthStandards';
 import MuscleRadar from '../components/MuscleRadar';
 
 const MEAS_FIELDS=[{k:"chest",l:"Chest"},{k:"waist",l:"Waist"},{k:"hips",l:"Hips"},{k:"biceps",l:"Biceps"},{k:"thighs",l:"Thighs"}];
 
-export default function ProgressPage({hist,c,unit="kg",bwLog=[],onLogBW,onDeleteBW,customExercises={},measLog=[],onLogMeas,onDeleteMeas,measUnit="cm",bwKg=0}){
+export default function ProgressPage({hist,c,unit="kg",bwLog=[],onLogBW,onDeleteBW,customExercises={},measLog=[],onLogMeas,onDeleteMeas,measUnit="cm",bwKg=0,bwUnit,onSetBwUnit}){
+  // Effective body weight display unit — independent of lifting unit
+  const effectiveBwUnit=bwUnit||unit;
   const [measUnitLocal,setMeasUnitLocal]=React.useState(()=>{try{return localStorage.getItem("il_meas_unit")||"cm";}catch{return"cm";}});
   const saveMeasUnit=u=>{setMeasUnitLocal(u);try{localStorage.setItem("il_meas_unit",u);}catch{}};
   const mUnit=measUnitLocal; // "cm" or "in"
@@ -72,8 +73,8 @@ export default function ProgressPage({hist,c,unit="kg",bwLog=[],onLogBW,onDelete
   const maxVol=Math.max(...weekBars.map(w=>w.vol),1);
   const modeLabel=mode==="weight"?"Max Weight ("+unit+")":mode==="1rm"?"Est. 1RM ("+unit+")":"Volume ("+unit+"×reps)";
 
-  // Body weight chart
-  const bwDisplay=bwLog.map(e=>({date:e.date,y:unit==="lb"?Math.round(kgToLb(e.kg)*10)/10:e.kg}));
+  // Body weight chart — uses effectiveBwUnit (independent from lifting unit)
+  const bwDisplay=bwLog.map(e=>({date:e.date,y:effectiveBwUnit==="lb"?Math.round(kgToLb(e.kg)*10)/10:e.kg}));
   const bwMax=bwDisplay.length?Math.max(...bwDisplay.map(p=>p.y)):100;
   const bwMin=bwDisplay.length?Math.min(...bwDisplay.map(p=>p.y)):50;
   const BW=320,BH=100;
@@ -140,10 +141,17 @@ export default function ProgressPage({hist,c,unit="kg",bwLog=[],onLogBW,onDelete
         {RANGES.map(r=><button key={r.k} onClick={()=>setRange(r.k)} style={{flex:1,border:"none",borderRadius:9,padding:"6px 4px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",background:range===r.k?c.accent:"none",color:range===r.k?"#fff":c.sub,transition:"all .2s"}}>{r.l}</button>)}
       </div>
 
-      {/* Body Weight Chart */}
+      {/* Body Weight Chart — with independent unit toggle */}
       {bwLog.length>0&&(
-        <CollapsibleSection title="Body Weight" icon={<IScale/>} sub={unit+" · "+bwLog.length+" entr"+(bwLog.length===1?"y":"ies")} c={c}
-          badge={bwDisplay.length>=2?((bwDisplay[bwDisplay.length-1].y<=bwDisplay[0].y?"↓ ":"↑ ")+Math.abs(Math.round((bwDisplay[bwDisplay.length-1].y-bwDisplay[0].y)*10)/10)+unit):undefined}>
+        <CollapsibleSection title="Body Weight" icon={<IScale/>}
+          sub={<span style={{display:"flex",alignItems:"center",gap:6}}>
+            <span>{effectiveBwUnit} · {bwLog.length} entr{bwLog.length===1?"y":"ies"}</span>
+            {onSetBwUnit&&<button onClick={e=>{e.stopPropagation();onSetBwUnit(effectiveBwUnit==="kg"?"lb":"kg");}}
+              style={{background:"rgba(124,110,250,0.18)",border:"1px solid rgba(124,110,250,0.35)",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:800,cursor:"pointer",color:"#b0a0ff",fontFamily:"inherit",lineHeight:1.5}}>
+              {effectiveBwUnit==="kg"?"→ lb":"→ kg"}
+            </button>}
+          </span>}
+          badge={bwDisplay.length>=2?((bwDisplay[bwDisplay.length-1].y<=bwDisplay[0].y?"↓ ":"↑ ")+Math.abs(Math.round((bwDisplay[bwDisplay.length-1].y-bwDisplay[0].y)*10)/10)+effectiveBwUnit):undefined} c={c}>
           {bwDisplay.length>1&&<svg width="100%" viewBox={"0 0 "+BW+" "+(BH+24)} style={{display:"block",overflow:"visible",marginBottom:8}}>
             <defs><linearGradient id="bwGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={c.g} stopOpacity="0.3"/><stop offset="100%" stopColor={c.g} stopOpacity="0"/></linearGradient></defs>
             <path d={bwPath+" L"+bpx(bwDisplay.length-1)+","+BH+" L0,"+BH+" Z"} fill="url(#bwGrad)"/>
@@ -162,7 +170,7 @@ export default function ProgressPage({hist,c,unit="kg",bwLog=[],onLogBW,onDelete
             {[...bwLog].reverse().slice(0,6).map(e=>(
               <div key={e.date} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderTop:"1px solid "+c.border}}>
                 <span style={{fontSize:12,color:c.sub}}>{fmtD(e.date)}</span>
-                <span style={{fontSize:13,fontWeight:700,color:c.text}}>{unit==="lb"?Math.round(kgToLb(e.kg)*10)/10:e.kg} {unit}</span>
+                <span style={{fontSize:13,fontWeight:700,color:c.text}}>{effectiveBwUnit==="lb"?Math.round(kgToLb(e.kg)*10)/10:e.kg} {effectiveBwUnit}</span>
                 <button onClick={()=>onDeleteBW(e.date)} style={{background:"none",border:"none",cursor:"pointer",color:c.r,padding:"0 4px",display:"flex",alignItems:"center"}}><ITrash/></button>
               </div>
             ))}
@@ -271,8 +279,34 @@ export default function ProgressPage({hist,c,unit="kg",bwLog=[],onLogBW,onDelete
       {/* Strength Standards */}
       {hist.length>0&&<StrengthStandards hist={hist} c={c} unit={unit} bwKg={bwKg}/>}
 
-      {/* Activity Streak Calendar */}
-      {hist.length>0&&<StreakCalendar hist={hist} c={c}/>}
+      {/* Activity Streak Stats — compact row above calendar */}
+      {hist.length>0&&(()=>{
+        const curStreak=getStreak(hist);
+        // Best streak calculation
+        const dates=[...new Set(hist.map(w=>w.date))].sort();
+        let best=dates.length?1:0,run=1;
+        for(let i=1;i<dates.length;i++){
+          const prev=new Date(dates[i-1]);prev.setDate(prev.getDate()+1);
+          if(prev.toISOString().slice(0,10)===dates[i]){run++;if(run>best)best=run;}
+          else run=1;
+        }
+        const yearStart=new Date().getFullYear()+'-01-01';
+        const thisYear=hist.filter(w=>w.date>=yearStart).length;
+        return(
+          <div style={{display:"flex",gap:8,marginBottom:12}}>
+            {[
+              {label:"Current Streak",val:curStreak+" day"+(curStreak!==1?"s":""),col:c.accent},
+              {label:"Best Streak",val:best+" day"+(best!==1?"s":""),col:c.g},
+              {label:"This Year",val:thisYear+" session"+(thisYear!==1?"s":""),col:c.sub},
+            ].map(s=>(
+              <div key={s.label} style={{flex:1,background:c.card,border:"1px solid "+c.border,borderRadius:14,padding:"10px 8px",textAlign:"center"}}>
+                <div style={{fontSize:15,fontWeight:900,color:s.col,lineHeight:1}}>{s.val}</div>
+                <div style={{fontSize:9,color:c.sub,marginTop:3,fontWeight:600}}>{s.label.toUpperCase()}</div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Workout Calendar */}
       {hist.length>0&&<CalendarCard hist={hist} c={c} unit={unit}/>}
