@@ -15,7 +15,7 @@ function WeightChart({c,series=[],unit="kg",W=340,H=160}){
     return{minY,maxY,range,px,py,grid};
   },[series,W,H]);
   if(!derived)return null;
-  const{px,py,grid}=derived;
+  const{px,py,grid,minY,maxY}=derived;
   return(
     <div style={{position:"relative",userSelect:"none"}}>
       <svg width="100%" viewBox={"0 0 "+W+" "+H} style={{overflow:"visible",display:"block"}}>
