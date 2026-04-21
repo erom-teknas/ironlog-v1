@@ -5,10 +5,14 @@ import { VitePWA } from 'vite-plugin-pwa';
 const ICON_SVG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='120' fill='%237C6EFA'/%3E%3Ctext x='256' y='340' text-anchor='middle' font-size='280'%3E%F0%9F%8F%8B%EF%B8%8F%3C/text%3E%3C/svg%3E";
 
 export default defineConfig({
+  define: {
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
   plugins: [
     react(),
     VitePWA({
       strategies: 'injectManifest',
+      registerType: 'prompt',
       srcDir: 'src',
       filename: 'sw.js',
       manifest: {

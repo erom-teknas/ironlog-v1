@@ -1,7 +1,7 @@
 // IronLog Service Worker — cache-first + rest timer notifications
 // self.__WB_MANIFEST is injected by vite-plugin-pwa with all built asset URLs
 
-var CACHE = 'ironlog-v9';
+var CACHE = 'ironlog-v10';
 
 self.addEventListener('install', function(e) {
   var entries = self.__WB_MANIFEST || [];
@@ -76,6 +76,23 @@ self.addEventListener('message', function(e) {
   }
   if (e.data.type === 'CANCEL_NOTIF') {
     if (_notifTimer) { clearTimeout(_notifTimer); _notifTimer = null; }
+    return;
+  }
+  // Workout reminder: fires after a delay (ms) if user hasn't trained
+  if (e.data.type === 'SCHEDULE_REMINDER') {
+    var rDelay = parseInt(e.data.delay) || 0;
+    var rLabel = e.data.label || "Time to train 💪 You haven't logged a workout in a while.";
+    if (rDelay <= 0) return;
+    setTimeout(function() {
+      self.registration.showNotification('IronLog — Time to Train 💪', {
+        body: rLabel,
+        icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="120" fill="%237C6EFA"/><text x="256" y="340" text-anchor="middle" font-size="280">🏋️</text></svg>',
+        tag: 'ironlog-reminder',
+        renotify: false,
+        silent: false,
+        vibrate: [100, 50, 100],
+      });
+    }, rDelay);
     return;
   }
 });
