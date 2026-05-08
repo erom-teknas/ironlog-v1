@@ -771,6 +771,10 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
         // Historical best 1RM for PR live badge
         let histBest1RM=0;
         hist.forEach(w=>{const found=w.exercises.find(e=>e.name===ex.name);if(found)histBest1RM=Math.max(histBest1RM,bestRM(found.sets,latestBwKgFocus));});
+        // All-time best weight for this exercise
+        let allTimeBestW=0, allTimeBestReps=0;
+        hist.forEach(w=>{const found=w.exercises.find(e=>e.name===ex.name);if(found&&found.sets)found.sets.forEach(s=>{const sw=parseFloat(s.weight)||0;if(sw>allTimeBestW){allTimeBestW=sw;allTimeBestReps=parseInt(s.reps)||0;}});});
+        const allTimeBestDisp=allTimeBestW>0?(unit==="lb"?Math.round(kgToLb(allTimeBestW)*4)/4:allTimeBestW):0;
         // Feature 4: last 3 sessions for mini-history
         const miniHistory=lastNSessions(ex.name,3);
         // Feature 3: warm-up ramp — show only when NO warm-up sets exist yet
@@ -808,6 +812,7 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
                 <div style={{fontWeight:900,fontSize:17,color:c.text,letterSpacing:"-0.02em",lineHeight:1.2,wordBreak:"break-word"}}>{ex.name}</div>
                 <div style={{display:"flex",alignItems:"center",gap:6,marginTop:2}}>
                   <Pill label={ex.muscle} col={c.at} bg={c.as}/>
+                  {allTimeBestDisp>0&&!isCardioFocus&&!isTimedFocus&&<span style={{fontSize:10,color:"#f6a835",fontWeight:800,background:"#f6a83520",border:"1px solid #f6a83540",borderRadius:6,padding:"1px 6px"}}>🏆 {allTimeBestDisp}{unit}{allTimeBestReps?" × "+allTimeBestReps:""}</span>}
                   {exs.length>1&&<span style={{fontSize:10,color:c.sub,fontWeight:700}}>{focusIdx+1}/{exs.length}</span>}
                 </div>
               </div>
