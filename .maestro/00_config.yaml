@@ -1,0 +1,9 @@
+# Maestro global config for IronLog PWA
+# Run any flow with: maestro test .maestro/<flow>.yaml
+# Run all flows:     maestro test .maestro/
+# Target iOS sim:    maestro --device <sim-udid> test .maestro/
+# Target Android:    maestro --device emulator-5554 test .maestro/
+
+# The app is a PWA served at localhost:4173 (vite preview) or your Vercel URL.
+# For local testing: npm run build && npm run preview
+# Then open the URL in the simulator browser and install as PWA.

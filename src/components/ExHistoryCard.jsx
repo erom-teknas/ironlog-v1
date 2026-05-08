@@ -1,5 +1,5 @@
 import React, { useMemo, memo } from 'react';
-import { fmtD, kgToLb, calcVol, bestRM, fmtW } from '../utils';
+import { fmtD, kgToLb, calcVol, bestRM, fmtW, isCardioEx } from '../utils';
 
 function ExHistoryCard({name,hist,unit,c}){
   const sessions=useMemo(()=>{
@@ -7,7 +7,8 @@ function ExHistoryCard({name,hist,unit,c}){
     for(var i=hist.length-1;i>=0&&found.length<3;i--){
       const ex=(hist[i].exercises||[]).find(e=>e.name===name);
       if(ex&&ex.sets&&ex.sets.length){
-        found.push({date:hist[i].date,sets:ex.sets});
+        // Include isCardio flag for display branching; fall back to name detection
+        found.push({date:hist[i].date,sets:ex.sets,isCardio:ex.isCardio!=null?!!ex.isCardio:isCardioEx(ex.name,ex.muscle)});
       }
     }
     return found;
@@ -20,12 +21,21 @@ function ExHistoryCard({name,hist,unit,c}){
         <div key={i} style={{display:'flex',alignItems:'flex-start',gap:8,marginBottom:i<sessions.length-1?6:0}}>
           <span style={{fontSize:10,color:c.sub,flexShrink:0,minWidth:44}}>{fmtD(s.date)}</span>
           <div style={{display:'flex',gap:4,flexWrap:'wrap',flex:1}}>
-            {s.sets.filter(st=>!st.bodyweight).map((st,j)=>(
-              <span key={j} style={{fontSize:10,background:c.card,borderRadius:6,padding:'2px 6px',color:c.text,fontWeight:600,flexShrink:0}}>
-                {fmtW(st.weight,unit)}×{st.reps}
-              </span>
-            ))}
-            {s.sets.some(st=>st.bodyweight)&&<span style={{fontSize:10,background:c.card,borderRadius:6,padding:'2px 6px',color:c.at,fontWeight:600}}>BW×{s.sets[0].reps}</span>}
+            {s.isCardio
+              ? s.sets.map((st,j)=>(
+                  <span key={j} style={{fontSize:10,background:c.card,borderRadius:6,padding:'2px 6px',color:c.at,fontWeight:600,flexShrink:0}}>
+                    {st.mins||'–'}min{st.dist?' '+st.dist+'km':''}
+                  </span>
+                ))
+              : <>
+                  {s.sets.filter(st=>!st.bodyweight).map((st,j)=>(
+                    <span key={j} style={{fontSize:10,background:c.card,borderRadius:6,padding:'2px 6px',color:c.text,fontWeight:600,flexShrink:0}}>
+                      {fmtW(st.weight,unit)}×{st.reps}
+                    </span>
+                  ))}
+                  {s.sets.some(st=>st.bodyweight)&&<span style={{fontSize:10,background:c.card,borderRadius:6,padding:'2px 6px',color:c.at,fontWeight:600}}>BW×{s.sets[0].reps}</span>}
+                </>
+            }
           </div>
         </div>
       ))}

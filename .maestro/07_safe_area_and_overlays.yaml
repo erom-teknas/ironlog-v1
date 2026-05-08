@@ -1,0 +1,76 @@
+appId: com.apple.mobilesafari
+---
+# TC: Safe area, overlay z-index, and modal layering
+
+- launchApp
+
+# Topbar must not be hidden behind status bar
+- assertVisible:
+    text: "IronLog"
+
+# Start a workout and open exercise picker
+- tapOn:
+    text: "Start Workout"
+- tapOn:
+    text: "+ Add"
+- assertVisible:
+    text: "Search exercises"   # picker open
+
+# Dismiss picker by tapping backdrop
+- tapOn:
+    point: "50%, 10%"          # top of screen (outside sheet)
+- assertNotVisible:
+    text: "Search exercises"   # picker dismissed
+
+# Open picker again and close with X button
+- tapOn:
+    text: "+ Add"
+- tapOn:
+    text: "✕"
+- assertNotVisible:
+    text: "Search exercises"
+
+# Plate picker: add barbell exercise, open plate picker
+- tapOn:
+    text: "+ Add"
+- tapOn:
+    text: "Chest"
+- tapOn:
+    text: "Bench Press"
+- tapOn:
+    text: "Bench Press"        # focus mode
+- tapOn:
+    text: "WEIGHT"
+- inputText: "100"
+# Plate diagram should be visible for barbell exercises
+- assertVisible:
+    text: "REST"               # focus mode intact
+
+# Back to main log
+- tapOn:
+    text: "← Back"
+
+# Open ··· menu
+- tapOn:
+    text: "⋯"
+- assertVisible:
+    text: "Remove Exercise"
+
+# Backdrop tap dismisses the sheet
+- tapOn:
+    point: "50%, 10%"
+- assertNotVisible:
+    text: "Remove Exercise"
+
+# Confirm dialog z-index: open from menu properly (already tested in 02)
+# Verify workout summary z-index: on top of everything
+- tapOn:
+    text: "Finish"
+- assertVisible:
+    text: "Workout Complete!"
+# Nav must NOT be visible above summary (summary is full overlay)
+# Summary Done button reachable
+- tapOn:
+    text: "Done 💪"
+- assertVisible:
+    text: "HOME"

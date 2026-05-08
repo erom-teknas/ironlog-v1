@@ -1,15 +1,28 @@
 import React, { useState } from 'react';
 import { IChev } from '../icons';
+import { TOUR_STEPS } from '../components/TourOverlay';
 
-export default function HelpPage({c,onStartTour}){
+// Chapter metadata — matches SECTION_COLORS in TourOverlay
+const CHAPTERS = [
+  { name:"Home",             emoji:"🏠", color:"#10d9a0" },
+  { name:"Log",              emoji:"📝", color:"#f59e0b" },
+  { name:"History",          emoji:"📋", color:"#3b82f6" },
+  { name:"Progress",         emoji:"📈", color:"#8b5cf6" },
+  { name:"Personal Records", emoji:"🏆", color:"#f6a835", short:"PRs" },
+  { name:"Plans",         emoji:"📅", color:"#22c55e" },
+  { name:"Help",             emoji:"❓", color:"#64748b" },
+];
+const TOTAL_STEPS = TOUR_STEPS.length;
+
+export default function HelpPage({c,onStartTour,updateAvail,onUpdate}){
   const [open,setOpen]=useState(null);
   const [query,setQuery]=useState("");
   const sections=[
     {id:"start",icon:"🏋️",title:"Getting Started",items:[
       {q:"How do I log a workout?",a:"Tap Log in the bottom nav → tap Add Exercise → choose a muscle group and tap any exercise. Enter weight and reps for each set, then tap ✓ to mark a set done. When you're finished, tap Finish Workout."},
-      {q:"What is a blank workout vs. a routine?",a:"A blank workout is freestyle — you add whichever exercises you like as you go. A routine is a saved template (like Push Day) that pre-loads your exercises and fills in the weights from your last session automatically."},
+      {q:"What is a blank workout vs. a plan?",a:"A blank workout is freestyle — you add whichever exercises you like as you go. A plan is a saved template (like Push Day) that pre-loads your exercises and fills in the weights from your last session automatically."},
       {q:"How do I name my workout?",a:"Tap the name field at the top of the log screen (it shows 'Workout name…') and type whatever you like. The name is saved in your history."},
-      {q:"Will my data survive if I update or reinstall the app?",a:"Yes. All your workouts, routines, and body weight entries are stored directly on your device and are completely safe through app updates. If you're reinstalling, use Export File first to save a backup."},
+      {q:"Will my data survive if I update or reinstall the app?",a:"Yes. All your workouts, plans, and body weight entries are stored directly on your device and are completely safe through app updates. If you're reinstalling, use Export File first to save a backup."},
     ]},
     {id:"log",icon:"📝",title:"Logging Sets",items:[
       {q:"What does the ✓ button do?",a:"Marks that set as completed. The row fades to show it's done. If Auto-rest (AUTO button) is on, the rest timer starts automatically. Tap ✓ again on a completed set to remove it."},
@@ -27,7 +40,7 @@ export default function HelpPage({c,onStartTour}){
       {q:"How do I set a different rest time for each exercise?",a:"On each exercise card you'll see a small timer control showing the current rest duration (e.g. 60s) with − and + buttons. Tap + or − to adjust in 15-second steps. IronLog remembers this per exercise and uses it automatically whenever AUTO-rest fires for that exercise."},
       {q:"What does the BW toggle do to my 1RM calculation?",a:"When BW is on for an exercise (pull-up, dip etc.) IronLog adds your most recently logged body weight to any extra weight you entered. So if you weigh 80 kg and added 10 kg, your 1RM is calculated on 90 kg. This makes pull-up PRs accurate and comparable."},
       {q:"What is the 🔔 bell button?",a:"Enables notifications so IronLog can alert you when your rest is up — even if your phone screen is locked. Tap it once to give permission. You only need to do this once."},
-      {q:"What are Warm-up / Working / Drop set labels?",a:"Set type labels you can assign in routines. Warm-up sets show in amber — they don't affect the progression calculation. Drop sets show in red. Working sets are your main lifting sets."},
+      {q:"What are Warm-up / Working / Drop set labels?",a:"Set type labels you can assign in plans. Warm-up sets show in amber — they don't affect the progression calculation. Drop sets show in red. Working sets are your main lifting sets."},
       {q:"What is the exercise history shown on each card?",a:"The last 3 sessions for that exercise appear just below the exercise name — date, sets, weight × reps. Lets you see at a glance what you did last time without leaving the screen."},
       {q:"How do I add notes or form cues to an exercise?",a:"Tap the '+ Notes' button on any exercise card. A text field appears where you can write form cues, coaching tips, or reminders. The notes stay visible while you log that exercise."},
       {q:"What is a Superset?",a:"Tap '⚡ SS' on an exercise to mark it as part of a superset — exercises performed back-to-back with no rest between them. A visual amber connector banner appears between the paired exercises showing the name of the next exercise as a reminder."},
@@ -37,7 +50,7 @@ export default function HelpPage({c,onStartTour}){
     {id:"plates",icon:"🔵",title:"Plates & My Plates",items:[
       {q:"Where do I set up my plates?",a:"Home screen → scroll to My Plates. Tap a plate circle to toggle it on (coloured = you have it) or off (dimmed = you don't). Only your owned plates show in the picker during workouts."},
       {q:"How do I add a custom plate size?",a:"In My Plates, type your plate weight in the 'Custom plate' field and tap Add. It appears as a circle with a × to remove it. Useful for 2.5 lb micro-plates, 17.5 kg plates, and so on."},
-      {q:"How do I delete a custom exercise I added by mistake?",a:"In the Add Exercise picker (when logging or in Routines), find your custom exercise under 'MY EXERCISES' and swipe it left. A red Delete button appears — tap it to remove. Built-in exercises cannot be deleted."},
+      {q:"How do I delete a custom exercise I added by mistake?",a:"In the Add Exercise picker (when logging or in Plans), find your custom exercise under 'MY EXERCISES' and swipe it left. A red Delete button appears — tap it to remove. Built-in exercises cannot be deleted."},
       {q:"The plate chips on the card show wrong plates — why?",a:"The plate display works from the total weight in the field (bar included). If you entered the weight manually without including the bar, the chips will be wrong. Always use the + plate picker to build the weight — it automatically includes the bar so the maths is always right."},
       {q:"The plate picker doubled my weight for cables — how do I fix it?",a:"Tap the toggle button inside the plate picker (it says '× 2' or '× 1'). For cables, machines and dumbbells it should show × 1. The app tries to detect this automatically from the exercise name, but you can always override it."},
     ]},
@@ -60,17 +73,17 @@ export default function HelpPage({c,onStartTour}){
       {q:"How do I log body measurements?",a:"Progress tab → Body Measurements → enter values for Chest, Waist, Hips, Biceps, and Thighs. Toggle between cm and inches using the buttons at the top of that section. Tap Save Measurements to store the entry. A mini trend line appears for each field once you have 2+ entries. Green = getting smaller (good for waist), red = getting larger."},
       {q:"What unit are body measurements stored in?",a:"Body measurements use cm or inches — completely separate from the kg/lb weight unit toggle. Switch between them inside the Body Measurements section on the Progress tab. The unit you choose is saved and remembered."},
     ]},
-    {id:"routines",icon:"📋",title:"Routines & Progression",items:[
-      {q:"What is automatic progression?",a:"When you start a routine and completed every set last time, IronLog adds the set increment (e.g. +2.5 kg) automatically. No manual tracking — the app does it for you."},
+    {id:"plans",icon:"📋",title:"Plans & Progression",items:[
+      {q:"What is automatic progression?",a:"When you start a plan and completed every set last time, IronLog adds the set increment (e.g. +2.5 kg) automatically. No manual tracking — the app does it for you."},
       {q:"What is the deload badge?",a:"If you fail to complete all sets in two back-to-back sessions, IronLog automatically reduces the weight by 10% on your next session. This prevents you from grinding against the same weight forever."},
-      {q:"How do I create my own routine?",a:"Routines tab → New → name it, choose a colour and category → select a Periodization Block → Add Exercise → set target weight and reps per set, with optional Warm-up/Working/Drop labels. Tap Save."},
-      {q:"Are last-session weights filled in automatically?",a:"Yes. When you start any routine, IronLog finds your most recent session for each exercise and pre-fills those weights. You can change them at any time before or during the workout."},
-      {q:"What is a Periodization Block?",a:"A label on a routine that describes its training phase — Hypertrophy, Strength, Peaking, Maintenance, Cut, Deload, or Custom. It's shown as a badge on the routine card so you can quickly see what phase each program is in. No rules are enforced — it's a reference tag for your own organisation."},
-      {q:"What is the Weekly Schedule view?",a:"Routines tab → tap 📅 Schedule. A Mon–Sun grid appears. Tap any day tile to assign a routine to it — the tile shows the routine name and colour. Tap ✕ Rest day to clear a day. This is a visual planner only — IronLog doesn't auto-start sessions, but it shows you the plan at a glance so you always know what's next."},
+      {q:"How do I create my own plan?",a:"Plans tab → New → name it, choose a colour and category → select a Periodization Block → Add Exercise → set target weight and reps per set, with optional Warm-up/Working/Drop labels. Tap Save."},
+      {q:"Are last-session weights filled in automatically?",a:"Yes. When you start any plan, IronLog finds your most recent session for each exercise and pre-fills those weights. You can change them at any time before or during the workout."},
+      {q:"What is a Periodization Block?",a:"A label on a plan that describes its training phase — Hypertrophy, Strength, Peaking, Maintenance, Cut, Deload, or Custom. It's shown as a badge on the plan card so you can quickly see what phase each program is in. No rules are enforced — it's a reference tag for your own organisation."},
+      {q:"What is the Weekly Schedule view?",a:"Plans tab → tap 📅 Schedule. A Mon–Sun grid appears. Tap any day tile to assign a plan to it — the tile shows the plan name and colour. Tap ✕ Rest day to clear a day. This is a visual planner only — IronLog doesn't auto-start sessions, but it shows you the plan at a glance so you always know what's next."},
     ]},
     {id:"reorder",icon:"↕️",title:"Reordering Exercises",items:[
-      {q:"How do I reorder exercises in a workout?",a:"Every exercise card has a ≡ (three-line) drag handle on the left. Press and hold it, then drag the card up or down to the new position. Release to drop. Works in both the active Log screen and the Routines editor."},
-      {q:"Can I reorder exercises in a saved routine?",a:"Yes. Open the routine in the editor (Routines tab → tap a routine → Edit) and drag the ≡ handles. Save the routine when done — the new order is preserved."},
+      {q:"How do I reorder exercises in a workout?",a:"Every exercise card has a ≡ (three-line) drag handle on the left. Press and hold it, then drag the card up or down to the new position. Release to drop. Works in both the active Log screen and the Plans editor."},
+      {q:"Can I reorder exercises in a saved plan?",a:"Yes. Open the plan in the editor (Plans tab → tap a plan → Edit) and drag the ≡ handles. Save the plan when done — the new order is preserved."},
     ]},
     {id:"newfeatures",icon:"✨",title:"Activity, Balance & Standards",items:[
       {q:"What is the Activity Streak calendar?",a:"Progress tab → Activity Streak. A GitHub-style 52-week grid where each cell is one day — darker cells mean more workouts. Shows your current streak (consecutive days trained), all-time best streak, and total sessions this year. Great for spotting rest day patterns and keeping your streak alive."},
@@ -91,13 +104,13 @@ export default function HelpPage({c,onStartTour}){
       {q:"How do I change the theme?",a:"Tap the ●/🌙/☀️/A icon in the top-right corner. It cycles through four modes: Dark (🌙) → OLED Black (●) → Auto (A) → Light (☀️) → back to Dark. OLED mode uses pure black — ideal for OLED iPhone screens to save battery. Auto follows your iOS system appearance automatically."},
     ]},
     {id:"data",icon:"💾",title:"Data & Backup",items:[
-      {q:"Is my data safe? What happens if the app updates?",a:"Your workouts, routines, body weight log, and custom exercises are stored in IndexedDB — a persistent local database on your device that survives app updates, cache clears, and PWA reinstalls. Data is only lost if you manually clear all website data in Settings."},
-      {q:"Does IronLog auto-save?",a:"Yes — every time you open the app, a silent daily snapshot is saved to your device (IndexedDB) automatically, covering your workouts, routines, body weight, and custom exercises. The last 7 daily snapshots are kept as a rolling safety net. The Home screen shows the date of the last snapshot."},
-      {q:"What is Export File for?",a:"Creates a full backup file (JSON) containing all your workouts, routines, body weight entries and custom exercises. The file downloads to your Files app. Use it to move data to a new phone, save to iCloud, or email it to yourself. Always export before uninstalling the app."},
-      {q:"How do I restore from a backup?",a:"Home → Backup & Restore → Restore File → pick your IronLog backup file. Choose Merge to add its records to your existing data, or Replace to swap completely. Both your workouts and routines are restored."},
+      {q:"Is my data safe? What happens if the app updates?",a:"Your workouts, plans, body weight log, and custom exercises are stored in IndexedDB — a persistent local database on your device that survives app updates, cache clears, and PWA reinstalls. Data is only lost if you manually clear all website data in Settings."},
+      {q:"Does IronLog auto-save?",a:"Yes — every time you open the app, a silent daily snapshot is saved to your device (IndexedDB) automatically, covering your workouts, plans, body weight, and custom exercises. The last 7 daily snapshots are kept as a rolling safety net. The Home screen shows the date of the last snapshot."},
+      {q:"What is Export File for?",a:"Creates a full backup file (JSON) containing all your workouts, plans, body weight entries and custom exercises. The file downloads to your Files app. Use it to move data to a new phone, save to iCloud, or email it to yourself. Always export before uninstalling the app."},
+      {q:"How do I restore from a backup?",a:"Home → Backup & Restore → Restore File → pick your IronLog backup file. Choose Merge to add its records to your existing data, or Replace to swap completely. Both your workouts and plans are restored."},
       {q:"What is Export CSV for?",a:"Downloads a spreadsheet-compatible file of all your workout data. Useful for analysis in Excel, Google Sheets, or any fitness tracking tool. CSV is export-only — it cannot be imported back."},
       {q:"How often should I export a file backup?",a:"Once a week is a good habit if you train regularly. The auto-snapshot protects you on the same device, but a file export is your off-device insurance. The Home screen shows a daily backup reminder banner."},
-      {q:"How does QR Transfer work?",a:"Home → Backup & Restore → 📱 QR Export. IronLog compresses your full backup into one or more QR codes. On your other device, open IronLog → Backup & Restore → 📷 QR Import, then paste the QR code text (or scan with your camera and copy the text). If your data is large, multiple QR codes are generated — scan them in order (1 of N, 2 of N…). All your workouts, routines, and body weight are transferred without any cloud or account."},
+      {q:"How does QR Transfer work?",a:"Home → Backup & Restore → 📱 QR Export. IronLog compresses your full backup into one or more QR codes. On your other device, open IronLog → Backup & Restore → 📷 QR Import, then paste the QR code text (or scan with your camera and copy the text). If your data is large, multiple QR codes are generated — scan them in order (1 of N, 2 of N…). All your workouts, plans, and body weight are transferred without any cloud or account."},
     ]},
     {id:"reminders",icon:"🔔",title:"Workout Reminders",items:[
       {q:"How do I set a workout reminder?",a:"Home → Workout Reminder section → tap a day option (1d, 2d, 3d etc.). If you haven't logged a workout within that many days, IronLog fires a push notification at 9am reminding you to train. Tap Off to disable."},
@@ -116,14 +129,69 @@ export default function HelpPage({c,onStartTour}){
     <div style={{padding:"20px 16px 100px"}}>
       <h2 style={{fontSize:23,fontWeight:900,margin:"0 0 4px",color:c.text,letterSpacing:"-0.02em"}}>Help & Guide</h2>
       <p style={{fontSize:13,color:c.sub,marginBottom:12}}>Tap any question to expand. Tap the <strong style={{color:c.accent}}>?</strong> badges in the app for instant tips.</p>
-      {onStartTour&&<button onClick={onStartTour} style={{width:"100%",background:"linear-gradient(135deg,"+c.accent+"33,"+c.accent+"11)",border:"1.5px solid "+c.accent+"55",borderRadius:16,padding:"14px 16px",marginBottom:16,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:12,textAlign:"left"}}>
-        <span style={{fontSize:24,flexShrink:0}}>🗺️</span>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{fontWeight:800,fontSize:14,color:c.accent,marginBottom:2}}>Replay App Tour</div>
-          <div style={{fontSize:12,color:c.sub}}>20-step walkthrough of every feature — tap to start</div>
+      {/* ── Interactive Tutorial card ── */}
+      {onStartTour&&(
+        <div style={{background:"linear-gradient(145deg,#1a1730,#201b38)",border:"1.5px solid #7C6EFA55",borderRadius:22,marginBottom:16,overflow:"hidden",boxShadow:"0 8px 32px rgba(124,110,250,0.18)"}}>
+          {/* Colour stripe */}
+          <div style={{height:3,background:"linear-gradient(90deg,#7C6EFA,#10d9a0,#f59e0b,#3b82f6,#8b5cf6,#f6a835,#22c55e)"}}/>
+          <div style={{padding:"18px 18px 6px"}}>
+            {/* Header row */}
+            <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:14}}>
+              <div style={{width:48,height:48,borderRadius:14,background:"linear-gradient(135deg,#7C6EFA,#9b8ffc)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0,boxShadow:"0 4px 16px rgba(124,110,250,0.35)"}}>🎬</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:900,fontSize:16,color:"#e8e0ff",letterSpacing:"-0.02em",marginBottom:3}}>Interactive App Tour</div>
+                <div style={{fontSize:12,color:"#9b8fcc",lineHeight:1.5}}>Video-style walkthrough of every feature — replay anytime.</div>
+              </div>
+            </div>
+            {/* Stats row */}
+            <div style={{display:"flex",gap:8,marginBottom:14}}>
+              {[
+                {icon:"📍",val:TOTAL_STEPS+" steps"},
+                {icon:"⏱️",val:"~15 min"},
+                {icon:"📖",val:"7 chapters"},
+              ].map(({icon,val})=>(
+                <div key={val} style={{flex:1,background:"rgba(124,110,250,0.12)",borderRadius:10,padding:"7px 8px",display:"flex",alignItems:"center",gap:5}}>
+                  <span style={{fontSize:13}}>{icon}</span>
+                  <span style={{fontSize:11,fontWeight:700,color:"#b0a0ff"}}>{val}</span>
+                </div>
+              ))}
+            </div>
+            {/* Chapter badges */}
+            <div style={{fontSize:10,fontWeight:800,color:"#7C6EFA",letterSpacing:"0.08em",marginBottom:8}}>CHAPTERS</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:16}}>
+              {CHAPTERS.map(ch=>(
+                <div key={ch.name} style={{display:"flex",alignItems:"center",gap:4,background:ch.color+"18",border:"1px solid "+ch.color+"44",borderRadius:99,padding:"4px 10px"}}>
+                  <span style={{fontSize:11}}>{ch.emoji}</span>
+                  <span style={{fontSize:10,fontWeight:800,color:ch.color}}>{ch.short||ch.name}</span>
+                </div>
+              ))}
+            </div>
+            {/* CTA button */}
+            <button onClick={onStartTour} style={{width:"100%",background:"linear-gradient(135deg,#7C6EFA,#9b8ffc)",border:"none",borderRadius:14,padding:"14px",fontSize:15,fontWeight:800,cursor:"pointer",color:"#fff",fontFamily:"inherit",letterSpacing:"-0.01em",boxShadow:"0 6px 24px rgba(124,110,250,0.4)",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+              ▶ Start Tutorial
+            </button>
+          </div>
         </div>
-        <span style={{fontSize:16,color:c.accent,flexShrink:0}}>→</span>
-      </button>}
+      )}
+      {/* ── App version / update ── */}
+      <div style={{background:updateAvail?"linear-gradient(135deg,#7C6EFA22,#a78bfa11)":c.card,border:"1.5px solid "+(updateAvail?"#7C6EFA88":c.border),borderRadius:16,padding:"14px 16px",marginBottom:16}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <span style={{fontSize:24,flexShrink:0}}>{updateAvail?"🆕":"✅"}</span>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontWeight:800,fontSize:14,color:updateAvail?"#b0a0ff":c.text,marginBottom:2}}>
+              {updateAvail?"Update available":"IronLog is up to date"}
+            </div>
+            <div style={{fontSize:11,color:c.sub,lineHeight:1.5}}>
+              {updateAvail
+                ?"New version downloaded and waiting. IronLog never updates on its own — tap the button to install when you're ready."
+                :"The app only updates when you press the button here. It never updates automatically in the background."}
+            </div>
+          </div>
+          {updateAvail&&<button onClick={()=>onUpdate&&onUpdate()} style={{background:"linear-gradient(135deg,#7C6EFA,#9b8ffc)",border:"none",borderRadius:12,padding:"10px 16px",fontSize:13,fontWeight:800,cursor:"pointer",color:"#fff",fontFamily:"inherit",flexShrink:0,boxShadow:"0 4px 16px rgba(124,110,250,0.4)"}}>
+            Install
+          </button>}
+        </div>
+      </div>
       {/* Search */}
       <div style={{position:"relative",marginBottom:16}}>
         <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search help…"

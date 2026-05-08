@@ -103,7 +103,7 @@ export default function MuscleRadar({ hist, c, unit }) {
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             <div style={{ fontSize: 16, fontWeight: 900, color: pushPullRatio > 1.2 ? c.r : pushPullRatio < 0.8 ? c.am : c.g }}>{pushPullRatio}:1</div>
-            <div style={{ fontSize: 10, color: c.sub }}>{pushPullRatio > 1.2 ? 'More pull needed' : pushPullRatio < 0.8 ? 'More push needed' : 'Balanced ✓'}</div>
+            <div style={{ fontSize: 10, color: c.sub }}>{pushPullRatio > 1.2 ? 'More pull needed' : pushPullRatio < 0.8 ? 'More push needed' : 'Balanced'}</div>
           </div>
         </div>
       )}

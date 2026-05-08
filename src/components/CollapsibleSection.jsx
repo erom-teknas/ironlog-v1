@@ -7,6 +7,8 @@ function CollapsibleSection({title,sub,icon,c,defaultOpen=true,children,badge}){
   const [height,setHeight]=useState(defaultOpen?"auto":0);
   const [animating,setAnimating]=useState(false);
   const isJSX=icon&&typeof icon==="object";
+  const raf1Ref=useRef(null);
+  const raf2Ref=useRef(null);
 
   useEffect(()=>{
     if(!bodyRef.current)return;
@@ -19,9 +21,16 @@ function CollapsibleSection({title,sub,icon,c,defaultOpen=true,children,badge}){
     }else{
       const h=bodyRef.current.scrollHeight;
       setHeight(h);
-      requestAnimationFrame(()=>requestAnimationFrame(()=>{setHeight(0);setAnimating(true);}));
+      // Store RAF ids so they can be cancelled if component unmounts mid-animation
+      raf1Ref.current=requestAnimationFrame(()=>{
+        raf2Ref.current=requestAnimationFrame(()=>{setHeight(0);setAnimating(true);});
+      });
       const t=setTimeout(()=>setAnimating(false),280);
-      return()=>clearTimeout(t);
+      return()=>{
+        clearTimeout(t);
+        cancelAnimationFrame(raf1Ref.current);
+        cancelAnimationFrame(raf2Ref.current);
+      };
     }
   },[open]);
 

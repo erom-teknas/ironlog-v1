@@ -34,7 +34,7 @@ const RestTimerCircle=memo(function RestTimerCircle({c,timerSecs,timerStart,onCy
   },[done,onDone]);
   const R=19,circ=2*Math.PI*R;
   const mm=Math.floor(remain/60),ss=Math.floor(remain%60);
-  const label=done?"✓":(mm>0?mm+":"+(ss<10?"0":"")+ss:ss+"s");
+  const label=done?"Done":(mm>0?mm+":"+(ss<10?"0":"")+ss:ss+"s");
   const handleCycle=()=>{cancelScheduledBeeps();resumeACtx();onCycle();};
   if(!timerSecs){
     return(

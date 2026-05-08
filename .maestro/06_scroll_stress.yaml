@@ -1,0 +1,54 @@
+appId: com.apple.mobilesafari
+---
+# TC: Scroll stress — lists must render without crash or clipping
+
+- launchApp
+
+# History scroll
+- tapOn:
+    text: "HISTORY"
+- scroll:
+    direction: DOWN
+    duration: 2000
+- scroll:
+    direction: UP
+    duration: 1000
+- assertVisible:
+    text: "HISTORY"       # page still intact
+
+# Plans scroll
+- tapOn:
+    text: "PLAN"
+- assertVisible:
+    text: "Built-in & your own programs."
+- scroll:
+    direction: DOWN
+    duration: 1500
+- assertVisible:
+    text: "MY PLANS"      # section must be visible after scroll
+- scroll:
+    direction: UP
+    duration: 1000
+
+# Progress scroll
+- tapOn:
+    text: "PROGRESS"
+- scroll:
+    direction: DOWN
+    duration: 2000
+- scroll:
+    direction: UP
+    duration: 1000
+- assertVisible:
+    text: "PROGRESS"
+
+# Home scroll
+- tapOn:
+    text: "HOME"
+- scroll:
+    direction: DOWN
+    duration: 1500
+- assertVisible:
+    text: "HOME"          # tab bar still visible
+- assertVisible:
+    text: "LOG"           # nav never disappears

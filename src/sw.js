@@ -1,7 +1,7 @@
 // IronLog Service Worker — cache-first + rest timer notifications
 // self.__WB_MANIFEST is injected by vite-plugin-pwa with all built asset URLs
 
-var CACHE = 'ironlog-v10';
+var CACHE = 'ironlog-v141'; // feat: settings tabs (General/Equipment/Data) + configurable streak rest days 1-3
 
 self.addEventListener('install', function(e) {
   var entries = self.__WB_MANIFEST || [];

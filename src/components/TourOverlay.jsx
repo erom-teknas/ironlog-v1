@@ -1,217 +1,293 @@
-import React from 'react';
+import React, { useState, useLayoutEffect } from 'react';
 
+// ─── Tour step definitions — 8 focused steps ─────────────────────────────────
+// anchor: data-tour attribute value to spotlight; null = centered modal
 export const TOUR_STEPS = [
   {
-    tab: "home",
-    emoji: "👋",
-    title: "Welcome to IronLog",
-    body: "This quick tour walks you through every feature. You can replay it anytime from the Help tab. Tap Next to begin — or Skip to jump straight in.",
+    tab:"home", anchor:null,
+    emoji:"🏋️", title:"Welcome to IronLog",
+    body:"A quick tour to get you lifting in under 60 seconds. Fully offline — your data never leaves your phone.",
   },
   {
-    tab: "log",
-    emoji: "📝",
-    title: "The Log Tab — Start a Workout",
-    body: "Tap the Log tab (pencil icon) to start a workout. Type a name at the top, or leave it blank. The elapsed timer starts counting as soon as you open this tab.",
+    tab:"home", anchor:"home-ctas",
+    emoji:"▶️", title:"Start Training",
+    body:"Tap Start Workout for a freestyle session, or Use Plan to load a saved plan with last session's weights pre-filled.",
   },
   {
-    tab: "log",
-    emoji: "➕",
-    title: "Adding Exercises",
-    body: "Tap '+ Add Exercise' at the bottom of the log. Choose a muscle group, then pick from the built-in list or type a custom name. You can also search across all muscle groups.",
+    tab:"log", anchor:"nav-log",
+    emoji:"📝", title:"The Log Tab",
+    body:"The glowing center button is your gym. Tap it anytime to start or resume a workout, add exercises, and log sets.",
   },
   {
-    tab: "log",
-    emoji: "🏋️",
-    title: "Logging Sets",
-    body: "Each exercise shows a grid of sets. Enter weight and reps, then tap the ✓ button to mark a set done. The row fades to show it's complete. Tap the ✓ again to delete a set. Tap '+ Add set' to copy the last set.",
+    tab:"history", anchor:"nav-history",
+    emoji:"📋", title:"History",
+    body:"Every session lives here. Search by exercise, muscle, or date. Repeat any past workout with one tap.",
   },
   {
-    tab: "log",
-    emoji: "⏱️",
-    title: "Rest Timer",
-    body: "The circular timer in the top bar starts automatically when you complete a set (AUTO mode). Tap it to cycle through 60s / 120s / 180s presets or stop it. The per-exercise rest duration is adjustable with the − / + buttons on each exercise card.",
+    tab:"progress", anchor:"nav-progress",
+    emoji:"📈", title:"Progress",
+    body:"Strength charts, volume trends, muscle balance radar, and strength standards — all from your training history.",
   },
   {
-    tab: "log",
-    emoji: "⤢",
-    title: "Focus Mode",
-    body: "Tap the '⤢ Focus' label on any exercise name to enter full-screen Focus Mode. Big inputs for weight and reps, one set at a time. Great during a heavy lift. Tap '← Back' to return to the full log.",
+    tab:"plans", anchor:"nav-plans",
+    emoji:"📅", title:"Plans",
+    body:"Save workout programs here. Enable auto-progression and weights increase automatically each session you complete.",
   },
   {
-    tab: "log",
-    emoji: "🍽️",
-    title: "Plate Calculator",
-    body: "Scroll to the bottom of the Log tab to find the built-in plate calculator. Enter a target weight and it shows exactly which plates to load on each side. The inline plate display also appears under each set row as you type.",
+    tab:"prs", anchor:"nav-prs",
+    emoji:"🏆", title:"Personal Records",
+    body:"Your all-time bests ranked by estimated 1RM. Medals for your top 3 lifts. Tap any exercise for a full trend chart.",
   },
   {
-    tab: "log",
-    emoji: "⚡",
-    title: "Supersets & RPE/Tempo",
-    body: "Use the '⚡ SS' button on an exercise to mark it as a superset with the next exercise — a visual connector appears between them. The 'RPE/Tempo' button reveals extra fields for rate of perceived exertion and tempo notation (e.g. 3-1-2-0).",
-  },
-  {
-    tab: "log",
-    emoji: "🏁",
-    title: "Finishing a Workout",
-    body: "When all sets are done, tap 'Finish' in the top-right corner. Rate your session with stars, add notes, then confirm. Your workout is saved to History. Completed exercises collapse automatically to keep the screen tidy.",
-  },
-  {
-    tab: "history",
-    emoji: "📋",
-    title: "History — Your Workout Log",
-    body: "Every saved workout appears here, grouped by Today / This Week / Last Week / Month. Tap any card to expand it and see all exercises and sets.",
-  },
-  {
-    tab: "history",
-    emoji: "🔍",
-    title: "Search & Explore History",
-    body: "Use the search bar to filter by workout name, exercise name, muscle group, date, or notes. Expanded workout cards show mini sparklines (weight trend per exercise), a 1RM estimate, and options to Repeat, Share, or Delete.",
-  },
-  {
-    tab: "progress",
-    emoji: "📈",
-    title: "Progress — Charts & Stats",
-    body: "The Progress tab shows your bodyweight trend, weekly volume bars, and workout frequency. Filter by last 4 weeks, 3 months, or all time using the buttons at the top.",
-  },
-  {
-    tab: "progress",
-    emoji: "🔥",
-    title: "Muscle Heatmap & Duration",
-    body: "Scroll down on Progress to see the 8-week muscle frequency heatmap — darker squares mean more sessions targeting that muscle. Below that is the workout duration trend chart.",
-  },
-  {
-    tab: "progress",
-    emoji: "🎯",
-    title: "Muscle Balance Radar",
-    body: "The Muscle Balance section shows a spider chart across 8 muscle groups. A balanced shape means even training. The Push:Pull ratio bar turns green when balanced — aim for roughly 1:1 for long-term shoulder health.",
-  },
-  {
-    tab: "progress",
-    emoji: "🏅",
-    title: "Strength Standards",
-    body: "Strength Standards compares your best estimated 1RM on Bench, Squat, Deadlift, OHP, and Barbell Row against bodyweight multiplier benchmarks — from Untrained to Elite. Log your bodyweight on the Home tab to unlock the level comparisons.",
-  },
-  {
-    tab: "progress",
-    emoji: "🔥",
-    title: "Activity Streak",
-    body: "The Activity Streak section shows a GitHub-style 52-week grid — one cell per day, darker = more workouts. Track your current streak, all-time best streak, and total sessions this year at a glance.",
-  },
-  {
-    tab: "progress",
-    emoji: "📏",
-    title: "Body Measurements",
-    body: "Further down the Progress tab you'll find Body Measurements. Log chest, waist, hips, biceps, and thighs in cm or inches. Each measurement shows a mini sparkline so you can spot trends over time.",
-  },
-  {
-    tab: "prs",
-    emoji: "🏆",
-    title: "Personal Records",
-    body: "The PRs tab shows your all-time best for every exercise. Toggle between Weight PR (estimated 1RM) and Volume PR (best single-session total). Tap any exercise to see its full weight trend chart.",
-  },
-  {
-    tab: "routines",
-    emoji: "📅",
-    title: "Routines — Saved Workouts",
-    body: "The Routines tab has built-in templates (Push/Pull/Legs, Full Body, etc.) and a section to build your own. Tap any routine card to start it as a new workout — your last session's weights are pre-filled automatically.",
-  },
-  {
-    tab: "routines",
-    emoji: "📈",
-    title: "Progressive Overload",
-    body: "When creating or editing a custom routine, enable Auto-Progression on any exercise. Set an increment (e.g. +2.5 kg). Every time you complete all sets, the weight increases next session. Fail twice in a row and IronLog automatically deloads 10%.",
-  },
-  {
-    tab: "routines",
-    emoji: "🗓️",
-    title: "Weekly Schedule & Periodization",
-    body: "In the Routines tab, tap 'Weekly Schedule' to assign routines to specific days. Use the Periodization block selector (Hypertrophy, Strength, Power, Deload…) when building custom routines to organise your training phases.",
-  },
-  {
-    tab: "home",
-    emoji: "⚙️",
-    title: "Settings — Units, Theme & Plates",
-    body: "On the Home tab: toggle kg/lb with the unit button in the top bar, cycle Dark/OLED/Auto/Light themes with the moon/sun button. Scroll down on Home to log bodyweight, customise your gym's plate kit, and set workout reminder notifications.",
-  },
-  {
-    tab: "home",
-    emoji: "💾",
-    title: "Backup & Restore",
-    body: "IronLog saves silently to your device every day. On the Home tab you can export a JSON backup file, import one to restore or merge data, or use QR Code export to transfer your data to another device without a file. All data stays on your phone — nothing goes to a server.",
-  },
-  {
-    tab: "help",
-    emoji: "🎉",
-    title: "That's IronLog!",
-    body: "You've seen every feature. Head to any tab to start training. You can replay this tour anytime from the Help tab. Good luck — and lift heavy! 💪",
+    tab:"home", anchor:null,
+    emoji:"🎉", title:"You're all set!",
+    body:"Find this tour again in the Help tab anytime. Now go lift something heavy. 💪",
   },
 ];
 
+// ─── TourOverlay component ────────────────────────────────────────────────────
 export default function TourOverlay({ c, step, onNext, onPrev, onSkip }) {
-  const s = TOUR_STEPS[step];
-  const total = TOUR_STEPS.length;
-  const isLast = step === total - 1;
+  const s      = TOUR_STEPS[step];
+  const total  = TOUR_STEPS.length;
   const isFirst = step === 0;
+  const isLast  = step === total - 1;
+
+  const PAD = 10; // spotlight padding around element
+  const GAP = 10; // gap between spotlight and callout bubble
+
+  const [spotRect, setSpotRect] = useState(null);
+  const [visible,  setVisible]  = useState(true);
+
+  useLayoutEffect(() => {
+    // Cross-fade on step change
+    setVisible(false);
+    const fadeIn = setTimeout(() => setVisible(true), 90);
+
+    if (!s.anchor) {
+      setSpotRect(null);
+      return () => clearTimeout(fadeIn);
+    }
+
+    const capture = () => {
+      const el = document.querySelector('[data-tour="' + s.anchor + '"]');
+      if (el) {
+        const r = el.getBoundingClientRect();
+        // Sanity-check: rect must be inside the visible viewport.
+        // Negative top means the scroll reset hasn't propagated yet — bail and
+        // let the retry handle it.
+        if (r.top < 0 || r.top > window.innerHeight) { setSpotRect(null); return; }
+        setSpotRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+      } else {
+        setSpotRect(null);
+      }
+    };
+
+    const findEl = () => {
+      const el = document.querySelector('[data-tour="' + s.anchor + '"]');
+      if (!el) { setSpotRect(null); return; }
+
+      const scroller = document.querySelector('.il-scroll');
+      const inScroller = scroller && scroller.contains(el);
+
+      if (inScroller) {
+        // Bug fix 1 & 2: .il-scroll carries its scrollTop across tab switches.
+        // Reset to 0 first so the element's offsetTop is always measured from
+        // the top of the content, then use block:'center' so the element lands
+        // in the middle of the visible area (not under the fixed topbar).
+        scroller.scrollTop = 0;
+        el.scrollIntoView({ behavior: 'instant', block: 'center' });
+      }
+
+      // Two rAF ticks: first lets the browser commit the scroll, second ensures
+      // any pending layout from the scroll is flushed before measuring.
+      requestAnimationFrame(() => requestAnimationFrame(capture));
+    };
+
+    findEl();
+    // Bug fix 3: tab-switch animation (il-enter-r) runs for 220ms.
+    // getBoundingClientRect() during a translateX animation returns the animated
+    // (mid-slide) coordinate, not the resting position.
+    // 380ms > 220ms animation + one rAF buffer — rect is stable by then.
+    const retry = setTimeout(findEl, 380);
+    return () => { clearTimeout(fadeIn); clearTimeout(retry); };
+  }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Shared: step progress dots ─────────────────────────────────────────────
+  function Dots({ size = 'lg' }) {
+    return (
+      <div style={{ display:'flex', gap:4, justifyContent:'center', marginBottom: size==='lg' ? 20 : 8 }}>
+        {TOUR_STEPS.map((_, i) => (
+          <div key={i} style={{
+            width:  i === step ? (size==='lg' ? 22 : 16) : (size==='lg' ? 7 : 5),
+            height: size==='lg' ? 7 : 5,
+            borderRadius: 4,
+            background: i === step ? c.accent : c.card2,
+            transition: 'width .25s cubic-bezier(.4,0,.2,1), background .25s',
+          }}/>
+        ))}
+      </div>
+    );
+  }
+
+  // ── Shared: nav buttons ────────────────────────────────────────────────────
+  function NavButtons({ compact }) {
+    const btnBase = {
+      border:'none', cursor:'pointer', fontFamily:'inherit',
+      fontWeight:700, borderRadius: compact ? 10 : 14,
+    };
+    return (
+      <div style={{ display:'flex', gap: compact ? 5 : 8, alignItems:'center' }}>
+        {!isFirst && (
+          <button onClick={onPrev} style={{
+            ...btnBase,
+            background: c.card2,
+            border: '1px solid ' + c.border,
+            padding: compact ? '9px 13px' : '12px 16px',
+            fontSize: compact ? 15 : 16,
+            color: c.sub,
+            flexShrink: 0,
+          }}>‹</button>
+        )}
+        {!isLast && (
+          <button onClick={onSkip} style={{
+            ...btnBase,
+            background: 'none',
+            padding: compact ? '9px 6px' : '12px 8px',
+            fontSize: compact ? 12 : 13,
+            color: c.sub,
+            flexShrink: 0,
+          }}>Skip</button>
+        )}
+        <button onClick={onNext} style={{
+          ...btnBase,
+          flex: 1,
+          background: 'linear-gradient(135deg,' + c.accent + ',' + c.accent + 'cc)',
+          padding: compact ? '10px' : '14px',
+          fontSize: compact ? 13 : 15,
+          fontWeight: 800,
+          color: '#fff',
+          boxShadow: '0 4px 20px ' + c.accent + '44',
+        }}>{isLast ? 'Start Lifting 💪' : 'Next →'}</button>
+      </div>
+    );
+  }
+
+  // ── Centered modal (welcome / done, or element not found) ──────────────────
+  if (!s.anchor || !spotRect) {
+    return (
+      <div style={{
+        position:'fixed', inset:0, zIndex:9500,
+        background:'rgba(8,8,15,0.88)',
+        display:'flex', alignItems:'center', justifyContent:'center',
+        padding:'24px 20px',
+        pointerEvents:'all',
+        opacity: visible ? 1 : 0,
+        transition:'opacity 0.18s ease',
+      }}>
+        <div style={{
+          background: c.card,
+          borderRadius: 28,
+          padding:'28px 24px 22px',
+          width:'100%', maxWidth:360,
+          boxShadow:'0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px ' + c.border,
+          textAlign:'center',
+        }}>
+          <Dots size="lg" />
+          <div style={{ fontSize:52, marginBottom:12, lineHeight:1 }}>{s.emoji}</div>
+          <div style={{ fontSize:23, fontWeight:900, color:c.text, letterSpacing:'-0.03em', marginBottom:10, lineHeight:1.2 }}>{s.title}</div>
+          <div style={{ fontSize:14.5, color:c.sub, lineHeight:1.65, marginBottom:24 }}>{s.body}</div>
+          <NavButtons compact={false} />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Spotlight mode ─────────────────────────────────────────────────────────
+  const sTop  = spotRect.top    - PAD;
+  const sLeft = spotRect.left   - PAD;
+  const sW    = spotRect.width  + PAD * 2;
+  const sH    = spotRect.height + PAD * 2;
+  const sR    = Math.min(sH / 2 + 4, 26); // border-radius
+
+  // Element center x (for aligning callout arrow)
+  const spotCX = sLeft + sW / 2;
+
+  // Callout goes above element if element is in the bottom 55% of the screen
+  const calloutAbove = spotRect.top + spotRect.height / 2 > window.innerHeight * 0.52;
+
+  // Callout width + horizontal clamping
+  const calloutW = Math.min(296, window.innerWidth - 32);
+  const idealLeft  = spotCX - calloutW / 2;
+  const clampedLeft = Math.max(16, Math.min(idealLeft, window.innerWidth - calloutW - 16));
+
+  // Arrow offset within callout (pointing toward spotlight center)
+  const arrowLeft = Math.min(Math.max(spotCX - clampedLeft - 8, 18), calloutW - 34);
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 800,
-      background: "rgba(0,0,0,0.55)",
-      display: "flex", flexDirection: "column",
-      justifyContent: "flex-end",
-      pointerEvents: "none",
-    }}>
-      {/* Card */}
+    <div style={{ position:'fixed', inset:0, zIndex:9500, pointerEvents:'none' }}>
+
+      {/* ── Punch-hole spotlight ──────────────────────────────────────────── */}
       <div style={{
-        pointerEvents: "all",
+        position:'absolute',
+        top:  sTop,
+        left: sLeft,
+        width:  sW,
+        height: sH,
+        borderRadius: sR,
+        // The 9999px spread creates the full-screen dim; second shadow = pulse ring
+        boxShadow: '0 0 0 9999px rgba(8,8,15,0.82)',
+        border: '2px solid ' + c.accent + '99',
+        animation: 'il-spot-pulse 2s ease-in-out infinite',
+        opacity: visible ? 1 : 0,
+        transition: [
+          'opacity 0.2s ease',
+          'top .32s cubic-bezier(.4,0,.2,1)',
+          'left .32s cubic-bezier(.4,0,.2,1)',
+          'width .32s cubic-bezier(.4,0,.2,1)',
+          'height .32s cubic-bezier(.4,0,.2,1)',
+        ].join(','),
+      }}/>
+
+      {/* ── Callout bubble ────────────────────────────────────────────────── */}
+      <div style={{
+        position:'absolute',
+        ...(calloutAbove
+          ? { bottom: window.innerHeight - sTop + GAP }
+          : { top:    sTop + sH + GAP }
+        ),
+        left: clampedLeft,
+        width: calloutW,
         background: c.card,
-        borderTop: "1px solid " + c.border,
-        borderRadius: "24px 24px 0 0",
-        padding: "20px 20px calc(env(safe-area-inset-bottom, 0px) + 20px)",
-        boxShadow: "0 -8px 40px rgba(0,0,0,0.4)",
-        maxWidth: 430,
-        width: "100%",
-        margin: "0 auto",
+        borderRadius: 20,
+        padding:'13px 15px 11px',
+        boxShadow:'0 12px 48px rgba(0,0,0,0.55), 0 0 0 1px ' + c.border,
+        pointerEvents:'all',
+        opacity: visible ? 1 : 0,
+        transition:'opacity 0.18s ease',
       }}>
-        {/* Progress bar */}
-        <div style={{ height: 3, background: c.muted, borderRadius: 99, marginBottom: 16, overflow: "hidden" }}>
-          <div style={{ height: "100%", background: c.accent, borderRadius: 99, width: ((step + 1) / total * 100) + "%", transition: "width .3s" }} />
+
+        {/* Triangle arrow pointing toward spotlight */}
+        <div style={{
+          position:'absolute',
+          [calloutAbove ? 'bottom' : 'top']: -7,
+          left: arrowLeft,
+          width:0, height:0,
+          borderLeft:'8px solid transparent',
+          borderRight:'8px solid transparent',
+          [calloutAbove ? 'borderTop' : 'borderBottom']: '8px solid ' + c.card,
+        }}/>
+
+        <Dots size="sm" />
+
+        {/* Title row */}
+        <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:5 }}>
+          <span style={{ fontSize:20, lineHeight:1, flexShrink:0 }}>{s.emoji}</span>
+          <span style={{ fontSize:15, fontWeight:800, color:c.text, letterSpacing:'-0.02em', lineHeight:1.25 }}>{s.title}</span>
         </div>
 
-        {/* Step counter */}
-        <div style={{ fontSize: 11, fontWeight: 700, color: c.sub, letterSpacing: "0.06em", marginBottom: 8 }}>
-          STEP {step + 1} OF {total}
-        </div>
+        <div style={{ fontSize:12.5, color:c.sub, lineHeight:1.6, marginBottom:10 }}>{s.body}</div>
 
-        {/* Content */}
-        <div style={{ fontSize: 28, marginBottom: 6 }}>{s.emoji}</div>
-        <div style={{ fontSize: 18, fontWeight: 900, color: c.text, letterSpacing: "-0.02em", marginBottom: 8, lineHeight: 1.2 }}>
-          {s.title}
-        </div>
-        <div style={{ fontSize: 14, color: c.sub, lineHeight: 1.6, marginBottom: 20 }}>
-          {s.body}
-        </div>
-
-        {/* Navigation */}
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {!isFirst && (
-            <button onClick={onPrev} style={{
-              background: c.card2, border: "1px solid " + c.border, borderRadius: 12,
-              padding: "11px 16px", fontSize: 14, fontWeight: 700, cursor: "pointer",
-              color: c.sub, fontFamily: "inherit", flexShrink: 0,
-            }}>← Back</button>
-          )}
-          <button onClick={onSkip} style={{
-            background: "none", border: "none", padding: "11px 12px", fontSize: 13,
-            fontWeight: 600, cursor: "pointer", color: c.sub, fontFamily: "inherit",
-            flexShrink: 0,
-          }}>Skip tour</button>
-          <button onClick={onNext} style={{
-            flex: 1, background: c.accent, border: "none", borderRadius: 12,
-            padding: "12px", fontSize: 15, fontWeight: 800, cursor: "pointer",
-            color: "#fff", fontFamily: "inherit",
-          }}>{isLast ? "Done 🎉" : "Next →"}</button>
-        </div>
+        <NavButtons compact={true} />
       </div>
     </div>
   );

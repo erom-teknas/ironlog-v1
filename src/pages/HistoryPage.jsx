@@ -1,8 +1,10 @@
 import React, { useState, memo } from 'react';
-import { today, fmtD, calcVol, kgToLb, bestRM, calc1RM, fmtVol } from '../utils';
+import { today, fmtD, calcVol, kgToLb, bestRM, calc1RM, fmtVol, isCardioEx } from '../utils';
+import { uid } from '../utils';
 import { useConfirm } from '../hooks.jsx';
-import { IChev, ITrash, IShare } from '../icons';
-import { Empty, GBtn, DBtn } from '../components/Primitives';
+import { IChev, ITrash, IShare, IActivity } from '../icons';
+import { Empty, PBtn, GBtn, DBtn } from '../components/Primitives';
+import { CC } from '../constants';
 import ShareCard from '../components/ShareCard';
 
 // Mini sparkline — shows weight trend for one exercise across all history
@@ -35,9 +37,44 @@ const Sparkline=memo(function Sparkline({name,hist,unit,c}){
 
 const PAGE = 20;
 
-export default function HistoryPage({hist,c,unit="kg",onDelete,onExportCSV,onRepeat,bwKg=0}){
+export default function HistoryPage({hist,c,unit="kg",onDelete,onExportCSV,onRepeat,onSaveAsPlan,customPlans=[],bwKg=0}){
   const [open,setOpen]=useState(null);
   const [share,setShare]=useState(null);
+  const [savedPlanToast,setSavedPlanToast]=useState(null); // workout id that was just saved
+
+  // Convert a logged workout into a custom plan template
+  const saveAsPlan=(w)=>{
+    // Check if already saved to avoid duplicates
+    const alreadySaved=customPlans.some(p=>p.sourceId===w.id);
+    if(alreadySaved){setSavedPlanToast(w.id);setTimeout(()=>setSavedPlanToast(null),2500);return;}
+    const col=CC[Math.floor(Math.random()*CC.length)];
+    const plan={
+      id:uid(),
+      sourceId:w.id, // track origin so we can warn on re-save
+      name:w.name||"Saved Workout",
+      tag:"Custom",
+      col,
+      block:"Saved",
+      exercises:w.exercises.map(ex=>({
+        id:uid(),
+        name:ex.name,
+        muscle:ex.muscle,
+        isCardio:ex.isCardio||false,
+        bodyweight:ex.bodyweight||false,
+        barType:ex.barType||"barbell",
+        sets:ex.sets.map(s=>({
+          id:uid(),
+          reps:s.reps||"",
+          weight:s.weight||"",
+          label:s.label||"Working",
+          bodyweight:s.bodyweight||false,
+        })),
+      })),
+    };
+    onSaveAsPlan(plan);
+    setSavedPlanToast(w.id);
+    setTimeout(()=>setSavedPlanToast(null),2500);
+  };
   const [search,setSearch]=useState("");
   const [visibleCount,setVisibleCount]=useState(PAGE);
   const {confirm:dlgConfirm,confirmEl}=useConfirm(c);
@@ -50,6 +87,7 @@ export default function HistoryPage({hist,c,unit="kg",onDelete,onExportCSV,onRep
       if(fmtD(w.date).toLowerCase().includes(q))return true;
       if(w.exercises&&w.exercises.some(e=>(e.name||"").toLowerCase().includes(q)))return true;
       if(w.exercises&&w.exercises.some(e=>(e.muscle||"").toLowerCase().includes(q)))return true;
+      if(w.exercises&&w.exercises.some(e=>(e.notes||"").toLowerCase().includes(q)))return true;
       return false;
     });
   },[hist,search]);
@@ -117,12 +155,61 @@ export default function HistoryPage({hist,c,unit="kg",onDelete,onExportCSV,onRep
               <div style={{color:c.sub,transform:isO?"rotate(90deg)":"rotate(0deg)",transition:"transform .2s",flexShrink:0,marginLeft:8,opacity:0.6}}><IChev/></div>
             </button>
             {isO&&<div style={{borderTop:"1px solid "+c.border,padding:"12px 15px 15px"}}>
-              {w.exercises.map((ex,i)=>{const rm=bestRM(ex.sets,bwKg);return<div key={i} style={{marginBottom:12}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}><div style={{fontWeight:700,fontSize:13,color:c.text}}>{ex.name}{rm>0&&<span style={{fontSize:11,color:c.sub,marginLeft:7}}>~1RM {unit==="lb"?Math.round(kgToLb(rm)*4)/4:rm}{unit}</span>}</div><Sparkline name={ex.name} hist={hist} unit={unit} c={c}/></div><div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{ex.sets.map((s,j)=>{const lc=s.label==="Warm-up"?c.am:s.label==="Drop"?c.r:c.sub;return<div key={j} style={{background:c.card2,borderRadius:7,padding:"4px 9px",fontSize:11,color:lc,fontWeight:600}}>{s.bodyweight?"BW":(unit==="lb"?Math.round(kgToLb(parseFloat(s.weight)||0)*4)/4:s.weight)+unit}×{s.reps}{s.label&&s.label!=="Working"?<span style={{fontSize:9,marginLeft:3,opacity:0.7}}>{s.label}</span>:null}</div>;})}</div></div>;})}
+              {w.exercises.map((ex,i)=>{
+                const isC=ex.isCardio!=null?!!ex.isCardio:isCardioEx(ex.name,ex.muscle);
+                const rm=!isC?bestRM(ex.sets,bwKg):0;
+                // Cardio totals for header summary
+                const totalMins=isC?ex.sets.reduce((s,x)=>s+(parseFloat(x.mins)||0),0):0;
+                const totalDist=isC?ex.sets.reduce((s,x)=>s+(parseFloat(x.dist)||0),0):0;
+                return<div key={i} style={{marginBottom:12}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+                    <div style={{fontWeight:700,fontSize:13,color:c.text}}>
+                      {isC&&<span style={{display:"flex",color:c.g,marginRight:4}}><IActivity/></span>}
+                      {ex.name}
+                      {!isC&&rm>0&&<span style={{fontSize:11,color:c.sub,marginLeft:7}}>~1RM {unit==="lb"?Math.round(kgToLb(rm)*4)/4:rm}{unit}</span>}
+                      {isC&&totalMins>0&&<span style={{fontSize:11,color:c.sub,marginLeft:7}}>{totalMins}min{totalDist>0?" · "+Math.round(totalDist*10)/10+"km":""}</span>}
+                    </div>
+                    {!isC&&<Sparkline name={ex.name} hist={hist} unit={unit} c={c}/>}
+                  </div>
+                  <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                    {ex.sets.map((s,j)=>{
+                      // Label colour — handles both strength and cardio labels
+                      const lc=s.label==="Warm-up"?c.am
+                        :s.label==="Drop set"?c.r
+                        :s.label==="Intervals"?c.am
+                        :s.label==="Sprint"?c.r
+                        :c.sub;
+                      // Pill text — cardio shows duration/distance; strength shows weight×reps
+                      const pillText=isC
+                        ?((s.mins||"0")+"min"+(s.dist?" · "+s.dist+"km":""))
+                        :(s.bodyweight?"BW":(unit==="lb"?Math.round(kgToLb(parseFloat(s.weight)||0)*4)/4:parseFloat(s.weight)||0)+unit)+"×"+(s.reps||"0");
+                      const showLabel=s.label&&s.label!=="Working"&&s.label!=="Steady";
+                      return<div key={j} style={{background:c.card2,borderRadius:7,padding:"4px 9px",fontSize:11,color:lc,fontWeight:600,display:"flex",alignItems:"center",gap:3}}>
+                        <span>{pillText}</span>
+                        {showLabel&&<span style={{fontSize:9,opacity:0.7}}>{s.label}</span>}
+                      </div>;
+                    })}
+                  </div>
+                  {ex.notes&&<div style={{fontSize:11,color:c.sub,marginTop:5,fontStyle:"italic",lineHeight:1.4}}>{ex.notes}</div>}
+                </div>;
+              })}
               {w.notes&&<div style={{background:c.card2,borderRadius:11,padding:"9px 11px",fontSize:13,color:c.sub,marginBottom:11,fontStyle:"italic"}}>"{w.notes}"</div>}
-              <div style={{display:"flex",gap:7}}>
-                {onRepeat&&<GBtn onClick={()=>onRepeat(w)} c={c} style={{flex:1,justifyContent:"center",fontSize:13}}>🔁 Repeat</GBtn>}
-                <GBtn onClick={()=>setShare(w)} c={c} style={{flex:1,justifyContent:"center"}}><IShare/>Share</GBtn>
-                <DBtn onClick={()=>dlgConfirm("Delete \""+w.name+"\"?\nThis cannot be undone.").then(ok=>{if(ok){onDelete(w.id);setOpen(null);}})} c={c} style={{flex:1,justifyContent:"center"}}><ITrash/>Delete</DBtn>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {onRepeat&&<PBtn onClick={()=>onRepeat(w)} c={c} style={{width:"100%",justifyContent:"center",fontSize:15,padding:"13px 20px",letterSpacing:"-0.01em"}}>Repeat Workout</PBtn>}
+                {onSaveAsPlan&&(()=>{
+                  const already=customPlans.some(p=>p.sourceId===w.id);
+                  const justSaved=savedPlanToast===w.id;
+                  return(
+                    <button onClick={()=>saveAsPlan(w)}
+                      style={{width:"100%",background:justSaved?c.gs:already?c.card2:c.as,border:"1.5px solid "+(justSaved?c.g:already?c.border:c.accent),borderRadius:14,padding:"12px 20px",fontSize:14,fontWeight:700,cursor:"pointer",color:justSaved?c.g:already?c.sub:c.accent,fontFamily:"inherit",letterSpacing:"-0.01em",transition:"all .2s"}}>
+                      {justSaved?"✓ Saved to Plans":already?"↑ Already in Plans":"↑ Save as Plan"}
+                    </button>
+                  );
+                })()}
+                <div style={{display:"flex",gap:7}}>
+                  <GBtn onClick={()=>setShare(w)} c={c} style={{flex:1,justifyContent:"center",fontSize:13}}><IShare/>Share</GBtn>
+                  <DBtn onClick={()=>dlgConfirm("Delete \""+w.name+"\"?\nThis cannot be undone.").then(ok=>{if(ok){onDelete(w.id);setOpen(null);}})} c={c} style={{flex:1,justifyContent:"center",fontSize:13}}><ITrash/>Delete</DBtn>
+                </div>
               </div>
             </div>}
           </div>
@@ -131,7 +218,19 @@ export default function HistoryPage({hist,c,unit="kg",onDelete,onExportCSV,onRep
           </div>);
         });
       })()}
-      {filtered.length>visibleCount&&<button onClick={()=>setVisibleCount(v=>v+PAGE)} style={{width:"100%",background:c.card2,border:"1px solid "+c.border,borderRadius:14,padding:"12px",fontSize:13,fontWeight:700,cursor:"pointer",color:c.sub,fontFamily:"inherit",marginBottom:12}}>Load more ({filtered.length-visibleCount} remaining)</button>}
+      {filtered.length>visibleCount&&(
+        <div style={{marginBottom:12}}>
+          <div style={{textAlign:"center",fontSize:11,color:c.sub,fontWeight:600,marginBottom:8,letterSpacing:"0.04em"}}>
+            Showing {Math.min(visibleCount,filtered.length)} of {filtered.length} workouts
+          </div>
+          <div style={{background:c.card2,borderRadius:8,height:3,overflow:"hidden",marginBottom:12}}>
+            <div style={{height:"100%",width:Math.round((Math.min(visibleCount,filtered.length)/filtered.length)*100)+"%",background:"linear-gradient(90deg,#7C6EFA,#a89dff)",borderRadius:8,transition:"width .3s ease"}}/>
+          </div>
+          <button onClick={()=>setVisibleCount(v=>v+PAGE)} style={{width:"100%",background:"rgba(124,110,250,0.1)",border:"1.5px solid rgba(124,110,250,0.35)",borderRadius:14,padding:"13px",fontSize:13,fontWeight:700,cursor:"pointer",color:"#9b8ffc",fontFamily:"inherit",letterSpacing:"-0.01em",transition:"background .15s"}}>
+            Load {Math.min(PAGE,filtered.length-visibleCount)} more ↓
+          </button>
+        </div>
+      )}
       {share&&<ShareCard workout={share} c={c} unit={unit} bwKg={bwKg} onClose={()=>setShare(null)}/>}
     </div>
   );

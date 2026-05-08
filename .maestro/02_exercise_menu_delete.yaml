@@ -1,0 +1,45 @@
+appId: com.apple.mobilesafari
+---
+# TC: Three-dot menu → Remove Exercise
+# Asserts: menu dismisses BEFORE confirm appears (the layering bug)
+
+- launchApp
+- tapOn:
+    text: "Start Workout"
+
+# Add an exercise
+- tapOn:
+    text: "+ Add"
+- assertVisible:
+    text: "Chest"  # muscle tab
+- tapOn:
+    text: "Bench Press"
+- assertVisible:
+    text: "Bench Press"  # exercise card visible
+
+# Open three-dot menu
+- tapOn:
+    text: "⋯"
+- assertVisible:
+    text: "Remove Exercise"
+- assertVisible:
+    text: "Equipment"
+
+# Tap Remove Exercise
+- tapOn:
+    text: "Remove Exercise"
+
+# CRITICAL: options sheet must be gone BEFORE confirm appears
+# If the sheet is still visible here, the bug is reproduced
+- assertNotVisible:
+    text: "Equipment"     # sheet content must be gone
+- assertNotVisible:
+    text: "Remove Exercise"  # sheet itself must be gone
+
+# Confirm dialog must now be visible and interactive
+- assertVisible:
+    text: "Remove Bench Press?"
+- tapOn:
+    text: "Cancel"  # or "OK" — either works, sheet should not reappear
+- assertNotVisible:
+    text: "Equipment"

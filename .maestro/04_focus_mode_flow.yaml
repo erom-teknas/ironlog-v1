@@ -1,0 +1,71 @@
+appId: com.apple.mobilesafari
+---
+# TC: Full focus mode flow — set completion, rest timer, unmark
+
+- launchApp
+- tapOn:
+    text: "Start Workout"
+- tapOn:
+    text: "+ Add"
+- tapOn:
+    text: "Back"          # muscle group tab
+- tapOn:
+    text: "Pull-Up"
+- tapOn:
+    text: "Pull-Up"       # tap the exercise card to open focus mode
+- assertVisible:
+    text: "Pull-Up"
+- assertVisible:
+    text: "SET 1"
+- assertVisible:
+    text: "Mark Done"
+
+# Enter reps
+- tapOn:
+    text: "REPS"
+- inputText: "8"
+
+# Mark set done
+- tapOn:
+    text: "Mark Done"
+- assertVisible:
+    text: "✓ Done"       # button changes
+
+# Verify rest timer row is visible (REST chips + circle)
+- assertVisible:
+    text: "REST"
+- assertVisible:
+    text: "1m"
+- assertVisible:
+    text: "90s"
+- assertVisible:
+    text: "2m"
+- assertVisible:
+    text: "3m"
+# 5m chip must NOT be present (removed)
+- assertNotVisible:
+    text: "5m"
+
+# Unmark the set — timer must stop
+- tapOn:
+    text: "✓ Done"
+- assertVisible:
+    text: "Mark Done"     # reverted
+
+# RPE row must be visible
+- assertVisible:
+    text: "RPE"
+- assertVisible:
+    text: "8"             # RPE button
+
+# Tap RPE 8
+- tapOn:
+    text: "8"
+
+# Navigate away and back — state preserved
+- tapOn:
+    text: "← Back"
+- tapOn:
+    text: "Pull-Up"       # re-open focus mode
+- assertVisible:
+    text: "RPE"

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { bestRM, calcVol, kgToLb, fmtD } from '../utils';
-import { IChev } from '../icons';
+import { IChev, IPR } from '../icons';
 import { Empty } from '../components/Primitives';
 
 export default function PRsPage({hist,c,unit="kg",bwKg=0}){
@@ -51,8 +51,8 @@ export default function PRsPage({hist,c,unit="kg",bwKg=0}){
 
       {/* Mode toggle */}
       <div style={{display:"flex",gap:4,background:c.card2,borderRadius:12,padding:4,marginBottom:18}}>
-        {[{k:"weight",l:"⚖️ Best Weight"},{k:"volume",l:"📦 Best Volume"}].map(m=>(
-          <button key={m.k} onClick={()=>{setPrMode(m.k);setSelEx(null);}} style={{flex:1,border:"none",borderRadius:9,padding:"7px 4px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",background:prMode===m.k?c.accent:"none",color:prMode===m.k?"#fff":c.sub,transition:"all .2s"}}>{m.l}</button>
+        {[{k:"weight",l:"Best Weight"},{k:"volume",l:"Best Volume"}].map(m=>(
+          <button key={m.k} onClick={()=>setPrMode(m.k)} style={{flex:1,border:"none",borderRadius:9,padding:"7px 4px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",background:prMode===m.k?c.accent:"none",color:prMode===m.k?"#fff":c.sub,transition:"all .2s"}}>{m.l}</button>
         ))}
       </div>
 

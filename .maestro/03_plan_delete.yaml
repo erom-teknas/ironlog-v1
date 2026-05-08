@@ -1,0 +1,34 @@
+appId: com.apple.mobilesafari
+---
+# TC: Plans page ··· menu → Delete Plan
+# Same layering bug existed here — verify it is fixed
+
+- launchApp
+- tapOn:
+    text: "PLAN"
+- assertVisible:
+    text: "MY PLANS"
+
+# This test requires at least one custom plan to exist.
+# If none: create one first via + New, then return here.
+# We tap ··· on first custom plan
+- tapOn:
+    id: "plan-options-btn"  # fallback: use text match below
+- assertVisible:
+    text: "Delete Plan"
+- tapOn:
+    text: "Delete Plan"
+
+# Sheet must dismiss before confirm
+- assertNotVisible:
+    text: "Delete Plan"   # sheet button gone
+- assertNotVisible:
+    text: "Edit Plan"     # sheet content gone
+
+# Confirm must be interactive
+- assertVisible:
+    text: "Delete"
+- tapOn:
+    text: "Cancel"
+- assertNotVisible:
+    text: "Edit Plan"     # sheet must not reopen

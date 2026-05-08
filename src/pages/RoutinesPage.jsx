@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { MG, EX, TMPLS } from '../constants';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { MG, TMPLS } from '../constants';
 import { uid, today, kgToLb, lbToKg } from '../utils';
 import { useConfirm } from '../hooks.jsx';
 import { IPlus, ITrash, IX, IChev } from '../icons';
@@ -9,7 +10,11 @@ import SwipeToDelete from '../components/SwipeToDelete';
 
 export default function RoutinesPage({c,unit="kg",onUse,customRoutines,onSaveCustom,onDeleteCustom,customExercises={},onAddCustomEx,onDeleteCustomEx,onRenameCustomEx}){
   const {confirm:dlgConfirm,confirmEl}=useConfirm(c);
-  const [open,setOpen]=useState(null);
+  // ── Lazy-load exercise list ────────────────────────────────────────────────
+  const [EX,setEX]=useState(null);
+  useEffect(()=>{import('../exercises.js').then(m=>setEX(m.EX));},[]);
+  const [selectedRoutine,setSelectedRoutine]=useState(null);
+  const [routineOptionsFor,setRoutineOptionsFor]=useState(null);
   const [editing,setEditing]=useState(null);
   const allRoutines=[...TMPLS.map(t=>({...t,builtin:true})),...customRoutines.map(t=>({...t,builtin:false}))];
 
@@ -55,12 +60,12 @@ export default function RoutinesPage({c,unit="kg",onUse,customRoutines,onSaveCus
 
   const COLORS=["#7C6EFA","#34d399","#fbbf24","#f87171","#06b6d4","#ec4899","#a78bfa","#fb923c"];
 
-  // ── Editor screen ──────────────────────────────────────────────────────────
+  // ── Screen 1: Editor screen ───────────────────────────────────────────────
   if(editing!==null){return(
-    <div style={{padding:"20px 16px 120px"}}>
+    <div style={{padding:"20px 16px 80px"}}>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
         <button onClick={closeEditor} style={{background:c.card2,border:"1px solid "+c.border,borderRadius:10,padding:"7px 12px",fontSize:13,fontWeight:700,cursor:"pointer",color:c.text,fontFamily:"inherit"}}>← Back</button>
-        <h2 style={{margin:0,fontSize:20,fontWeight:900,color:c.text,letterSpacing:"-0.02em",flex:1}}>{editing==="new"?"New Routine":"Edit Routine"}</h2>
+        <h2 style={{margin:0,fontSize:20,fontWeight:900,color:c.text,letterSpacing:"-0.02em",flex:1}}>{editing==="new"?"New Plan":"Edit Plan"}</h2>
         <PBtn onClick={saveForm} c={c} style={{padding:"8px 16px",fontSize:13}}>Save</PBtn>
       </div>
 
@@ -120,69 +125,138 @@ export default function RoutinesPage({c,unit="kg",onUse,customRoutines,onSaveCus
       </div>
 
       {/* Exercise picker modal */}
-      {exPicker&&<div onClick={()=>{setExPicker(false);setNewExNameR("");setEditingExR(null);}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.65)",zIndex:200,display:"flex",alignItems:"flex-end"}}>
-        <div onClick={e=>e.stopPropagation()} style={{background:c.card,borderRadius:"24px 24px 0 0",padding:"20px 16px 48px",width:"100%",maxHeight:"80vh",overflowY:"auto",boxSizing:"border-box"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-            <h3 style={{margin:0,fontSize:18,fontWeight:900,color:c.text}}>Add Exercise</h3>
-            <button onClick={()=>{setExPicker(false);setNewExNameR("");setEditingExR(null);}} style={{background:c.card2,border:"none",borderRadius:9,padding:8,cursor:"pointer",color:c.sub,display:"flex"}}><IX/></button>
+      {exPicker&&createPortal(
+        <div onClick={()=>{setExPicker(false);setNewExNameR("");setEditingExR(null);}}
+          style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.65)",zIndex:9300,display:"flex",alignItems:"flex-end",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)"}}>
+          <div onClick={e=>e.stopPropagation()} className="il-slide-up"
+            style={{background:c.card,borderRadius:"24px 24px 0 0",width:"100%",maxWidth:430,margin:"0 auto",
+                    maxHeight:"calc(92dvh - env(safe-area-inset-top,0px))",
+                    display:"flex",flexDirection:"column",boxSizing:"border-box",overflow:"hidden"}}>
+            {/* Sticky header */}
+            <div style={{flexShrink:0,padding:"18px 16px 0",background:c.card}}>
+              <div style={{width:36,height:4,background:c.border,borderRadius:99,margin:"0 auto 14px"}}/>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                <h3 style={{margin:0,fontSize:18,fontWeight:900,color:c.text}}>Add Exercise</h3>
+                <button onClick={()=>{setExPicker(false);setNewExNameR("");setEditingExR(null);}} style={{background:c.card2,border:"none",borderRadius:9,padding:8,cursor:"pointer",color:c.sub,display:"flex"}}><IX/></button>
+              </div>
+              <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:10,marginBottom:4,WebkitOverflowScrolling:"touch",scrollbarWidth:"none"}}>
+                {MG.map(m=><button key={m} onClick={()=>{setExMg(m);setNewExNameR("");setEditingExR(null);}} style={{flexShrink:0,border:"none",borderRadius:20,padding:"6px 13px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",background:exMg===m?c.accent:c.card2,color:exMg===m?"#fff":c.sub}}>{m}</button>)}
+              </div>
+            </div>
+            {/* Scrollable list */}
+            <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"none",padding:"0 16px",paddingBottom:"calc(env(safe-area-inset-bottom,0px) + 48px)"}}>
+              {/* Custom exercises */}
+              {(customExercises[exMg]||[]).length>0&&<div style={{marginBottom:8}}>
+                <div style={{fontSize:10,color:c.sub,fontWeight:700,letterSpacing:"0.08em",marginBottom:6,paddingLeft:4}}>MY EXERCISES — swipe left to delete</div>
+                {(customExercises[exMg]||[]).map(name=>(
+                  <SwipeToDelete key={name} onDelete={()=>onDeleteCustomEx(exMg,name)} c={c}>
+                    {editingExR===name
+                      ?<div style={{flex:1,display:"flex",alignItems:"center",gap:6,padding:"8px 4px"}}>
+                        <input autoFocus value={editExValR} onChange={e=>setEditExValR(e.target.value)}
+                          onKeyDown={e=>{if(e.key==="Enter"){onRenameCustomEx(exMg,name,editExValR);setEditingExR(null);}if(e.key==="Escape")setEditingExR(null);}}
+                          style={{flex:1,background:c.card2,border:"1.5px solid "+c.accent,borderRadius:9,padding:"6px 10px",fontSize:13,color:c.text,outline:"none",fontFamily:"inherit"}}/>
+                        <button onClick={()=>{onRenameCustomEx(exMg,name,editExValR);setEditingExR(null);}} style={{background:c.accent,border:"none",borderRadius:8,padding:"6px 11px",fontSize:12,fontWeight:700,cursor:"pointer",color:"#fff",fontFamily:"inherit"}}>Save</button>
+                        <button onClick={()=>setEditingExR(null)} style={{background:c.card2,border:"none",borderRadius:8,padding:"6px 10px",fontSize:12,cursor:"pointer",color:c.sub,fontFamily:"inherit"}}><IX/></button>
+                      </div>
+                      :<>
+                        <button onClick={()=>addExToForm(name)} style={{flex:1,textAlign:"left",background:"none",border:"none",padding:"12px 4px",fontSize:14,color:c.accent,cursor:"pointer",fontFamily:"inherit",fontWeight:600}}> {name}</button>
+                        <button onClick={()=>{setEditingExR(name);setEditExValR(name);}} style={{background:"none",border:"none",padding:"8px 10px",cursor:"pointer",color:c.sub,fontSize:12,fontFamily:"inherit"}}>Edit</button>
+                      </>
+                    }
+                  </SwipeToDelete>
+                ))}
+              </div>}
+              {/* Add new custom exercise */}
+              <div style={{display:"flex",gap:8,marginBottom:14,alignItems:"center"}}>
+                <input value={newExNameR} onChange={e=>setNewExNameR(e.target.value)}
+                  onKeyDown={e=>{if(e.key==="Enter"&&newExNameR.trim()){onAddCustomEx(exMg,newExNameR.trim());setNewExNameR("");}}}
+                  placeholder={"Add custom "+exMg+" exercise…"}
+                  style={{flex:1,background:c.card2,border:"1.5px solid "+c.border,borderRadius:11,padding:"9px 12px",fontSize:13,color:c.text,outline:"none",fontFamily:"inherit"}}/>
+                <button onClick={()=>{if(newExNameR.trim()){onAddCustomEx(exMg,newExNameR.trim());setNewExNameR("");}}} disabled={!newExNameR.trim()} style={{background:newExNameR.trim()?c.accent:c.muted,border:"none",borderRadius:11,padding:"9px 14px",fontSize:13,fontWeight:700,cursor:newExNameR.trim()?"pointer":"default",color:newExNameR.trim()?"#fff":c.sub,fontFamily:"inherit",flexShrink:0}}>Add</button>
+              </div>
+              {(customExercises[exMg]||[]).length>0&&<div style={{fontSize:10,color:c.sub,fontWeight:700,letterSpacing:"0.08em",marginBottom:6,paddingLeft:4}}>BUILT-IN</div>}
+              {(EX?EX[exMg]||[]:[]).map(name=><button key={name} onClick={()=>addExToForm(name)} style={{width:"100%",textAlign:"left",background:"none",border:"none",borderBottom:"1px solid "+c.border,padding:"13px 4px",fontSize:14,color:c.text,cursor:"pointer",fontFamily:"inherit",display:"flex",justifyContent:"space-between",alignItems:"center",fontWeight:500}}>{name}<IChev/></button>)}
+            </div>
           </div>
-          <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:10,marginBottom:12}}>
-            {MG.map(m=><button key={m} onClick={()=>{setExMg(m);setNewExNameR("");setEditingExR(null);}} style={{flexShrink:0,border:"none",borderRadius:20,padding:"6px 13px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",background:exMg===m?c.accent:c.card2,color:exMg===m?"#fff":c.sub}}>{m}</button>)}
-          </div>
-          {/* Custom exercises */}
-          {(customExercises[exMg]||[]).length>0&&<div style={{marginBottom:8}}>
-            <div style={{fontSize:10,color:c.sub,fontWeight:700,letterSpacing:"0.08em",marginBottom:6,paddingLeft:4}}>MY EXERCISES — swipe left to delete</div>
-            {(customExercises[exMg]||[]).map(name=>(
-              <SwipeToDelete key={name} onDelete={()=>onDeleteCustomEx(exMg,name)} c={c}>
-                {editingExR===name
-                  ?<div style={{flex:1,display:"flex",alignItems:"center",gap:6,padding:"8px 4px"}}>
-                    <input autoFocus value={editExValR} onChange={e=>setEditExValR(e.target.value)}
-                      onKeyDown={e=>{if(e.key==="Enter"){onRenameCustomEx(exMg,name,editExValR);setEditingExR(null);}if(e.key==="Escape")setEditingExR(null);}}
-                      style={{flex:1,background:c.card2,border:"1.5px solid "+c.accent,borderRadius:9,padding:"6px 10px",fontSize:13,color:c.text,outline:"none",fontFamily:"inherit"}}/>
-                    <button onClick={()=>{onRenameCustomEx(exMg,name,editExValR);setEditingExR(null);}} style={{background:c.accent,border:"none",borderRadius:8,padding:"6px 11px",fontSize:12,fontWeight:700,cursor:"pointer",color:"#fff",fontFamily:"inherit"}}>Save</button>
-                    <button onClick={()=>setEditingExR(null)} style={{background:c.card2,border:"none",borderRadius:8,padding:"6px 10px",fontSize:12,cursor:"pointer",color:c.sub,fontFamily:"inherit"}}>✕</button>
-                  </div>
-                  :<>
-                    <button onClick={()=>addExToForm(name)} style={{flex:1,textAlign:"left",background:"none",border:"none",padding:"12px 4px",fontSize:14,color:c.accent,cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>★ {name}</button>
-                    <button onClick={()=>{setEditingExR(name);setEditExValR(name);}} style={{background:"none",border:"none",padding:"8px 10px",cursor:"pointer",color:c.sub,fontSize:12,fontFamily:"inherit"}}>Edit</button>
-                  </>
-                }
-              </SwipeToDelete>
-            ))}
-          </div>}
-          {/* Add new custom exercise */}
-          <div style={{display:"flex",gap:8,marginBottom:14,alignItems:"center"}}>
-            <input value={newExNameR} onChange={e=>setNewExNameR(e.target.value)}
-              onKeyDown={e=>{if(e.key==="Enter"&&newExNameR.trim()){onAddCustomEx(exMg,newExNameR.trim());setNewExNameR("");}}}
-              placeholder={"Add custom "+exMg+" exercise…"}
-              style={{flex:1,background:c.card2,border:"1.5px solid "+c.border,borderRadius:11,padding:"9px 12px",fontSize:13,color:c.text,outline:"none",fontFamily:"inherit"}}/>
-            <button onClick={()=>{if(newExNameR.trim()){onAddCustomEx(exMg,newExNameR.trim());setNewExNameR("");}}} disabled={!newExNameR.trim()} style={{background:newExNameR.trim()?c.accent:c.muted,border:"none",borderRadius:11,padding:"9px 14px",fontSize:13,fontWeight:700,cursor:newExNameR.trim()?"pointer":"default",color:newExNameR.trim()?"#fff":c.sub,fontFamily:"inherit",flexShrink:0}}>Add</button>
-          </div>
-          {(customExercises[exMg]||[]).length>0&&<div style={{fontSize:10,color:c.sub,fontWeight:700,letterSpacing:"0.08em",marginBottom:6,paddingLeft:4}}>BUILT-IN</div>}
-          {EX[exMg].map(name=><button key={name} onClick={()=>addExToForm(name)} style={{width:"100%",textAlign:"left",background:"none",border:"none",borderBottom:"1px solid "+c.border,padding:"13px 4px",fontSize:14,color:c.text,cursor:"pointer",fontFamily:"inherit",display:"flex",justifyContent:"space-between",alignItems:"center",fontWeight:500}}>{name}<IChev/></button>)}
         </div>
-      </div>}
+      , document.body)}
     </div>
   );}
 
-  // ── List screen ───────────────────────────────────────────────────────────
+  // ── Screen 2: Routine detail view ─────────────────────────────────────────
+  if(selectedRoutine!==null){return(
+    <div style={{display:"flex",flexDirection:"column",height:"calc(100dvh - env(safe-area-inset-top,0px))",overflow:"hidden"}}>
+      {/* Sticky header */}
+      <div style={{
+        background:c.card,borderBottom:"1px solid "+c.border,
+        padding:"14px 16px",paddingTop:"calc(env(safe-area-inset-top,0px) + 14px)",
+        display:"flex",alignItems:"center",gap:12,flexShrink:0
+      }}>
+        <button onClick={()=>setSelectedRoutine(null)} style={{background:c.card2,border:"none",borderRadius:10,padding:"10px 16px",fontSize:14,fontWeight:700,cursor:"pointer",color:c.text,fontFamily:"inherit",minHeight:44}}>← Back</button>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontWeight:900,fontSize:17,color:c.text,letterSpacing:"-0.02em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{selectedRoutine.name}</div>
+          <div style={{display:"flex",gap:5,marginTop:2}}>
+            <span style={{background:selectedRoutine.col+"22",color:selectedRoutine.col,borderRadius:20,padding:"2px 8px",fontSize:10,fontWeight:700}}>{selectedRoutine.tag||"Custom"}</span>
+            {selectedRoutine.block&&<span style={{background:c.card2,color:c.sub,borderRadius:20,padding:"2px 8px",fontSize:10,fontWeight:700}}>{selectedRoutine.block}</span>}
+          </div>
+        </div>
+        <button onClick={()=>onUse(selectedRoutine)} style={{background:selectedRoutine.col,border:"none",borderRadius:12,padding:"11px 18px",fontSize:14,fontWeight:700,cursor:"pointer",color:"#fff",fontFamily:"inherit",minHeight:44,flexShrink:0}}>▶ Start</button>
+      </div>
+      {/* Scrollable exercise list */}
+      <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"none",padding:"12px 12px",paddingBottom:"calc(env(safe-area-inset-bottom,0px) + 70px)"}}>
+        {selectedRoutine.exercises.map((ex,idx)=>(
+          <div key={ex.id||idx} style={{display:"flex",alignItems:"center",gap:12,
+            background:c.card,border:"1.5px solid "+c.border,
+            borderRadius:18,padding:"14px 14px",marginBottom:8,
+            minHeight:68,boxSizing:"border-box"}}>
+            <div style={{width:28,height:28,borderRadius:"50%",background:c.card2,
+              border:"1.5px solid "+c.border,flexShrink:0,
+              display:"flex",alignItems:"center",justifyContent:"center",
+              fontSize:11,fontWeight:800,color:c.sub}}>
+              {idx+1}
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontWeight:800,fontSize:15,color:c.text,letterSpacing:"-0.01em",
+                overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ex.name}</div>
+              <div style={{fontSize:12,color:c.sub,marginTop:3,display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}>
+                <span>{ex.muscle}</span>
+                <span style={{opacity:0.4}}>·</span>
+                <span>{ex.sets.length} set{ex.sets.length!==1?"s":""}</span>
+                {ex.sets[0]&&<><span style={{opacity:0.4}}>·</span><span>{ex.sets[0].reps} reps</span></>}
+                {ex.sets[0]?.weight>0&&<><span style={{opacity:0.4}}>·</span><span>{unit==="lb"?Math.round(kgToLb(ex.sets[0].weight)*4)/4:ex.sets[0].weight}{unit}</span></>}
+                {ex.progression?.increment&&<span style={{color:c.g,fontWeight:700}}>· ↑+{ex.progression.increment}{ex.progression.unit||"kg"}</span>}
+              </div>
+            </div>
+          </div>
+        ))}
+        {!selectedRoutine.builtin&&(
+          <button onClick={()=>{setSelectedRoutine(null);openEdit(selectedRoutine);}}
+            style={{width:"100%",marginTop:8,background:"none",border:"2px solid "+c.border,
+              borderRadius:14,padding:"14px",fontSize:14,fontWeight:700,cursor:"pointer",
+              color:c.sub,fontFamily:"inherit"}}>Edit Plan</button>
+        )}
+      </div>
+    </div>
+  );}
+
+  // ── Screen 3: Routines list ───────────────────────────────────────────────
   return(
-    <div style={{padding:"20px 16px 100px"}}>
+    <div style={{padding:"16px 14px 90px"}}>
       {confirmEl}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
         <div>
-          <h2 style={{fontSize:23,fontWeight:900,margin:"0 0 4px",color:c.text,letterSpacing:"-0.02em"}}>Routines</h2>
-          <p style={{fontSize:13,color:c.sub,margin:0}}>Built-in & your own programs.</p>
+          <h2 style={{fontSize:21,fontWeight:900,margin:"0 0 2px",color:c.text,letterSpacing:"-0.02em"}}>Plans</h2>
+          <p style={{fontSize:12,color:c.sub,margin:0}}>Built-in & your own programs.</p>
         </div>
         <div style={{display:"flex",gap:7,alignItems:"center",flexShrink:0,marginTop:2}}>
-          <button onClick={()=>setScheduleMode(s=>!s)} style={{background:scheduleMode?c.accent+"22":c.card2,border:"1px solid "+(scheduleMode?c.accent:c.border),borderRadius:10,padding:"7px 11px",fontSize:12,fontWeight:700,cursor:"pointer",color:scheduleMode?c.accent:c.sub,fontFamily:"inherit"}}>📅 Schedule</button>
+          <button onClick={()=>setScheduleMode(s=>!s)} style={{background:scheduleMode?c.accent+"22":c.card2,border:"1px solid "+(scheduleMode?c.accent:c.border),borderRadius:10,padding:"7px 11px",fontSize:12,fontWeight:700,cursor:"pointer",color:scheduleMode?c.accent:c.sub,fontFamily:"inherit"}}> Schedule</button>
           <PBtn onClick={openNew} c={c} style={{padding:"9px 14px",fontSize:13}}><IPlus/> New</PBtn>
         </div>
       </div>
 
       {/* ── Weekly Schedule View ── */}
       {scheduleMode&&<div style={{background:c.card,border:"1px solid "+c.border,borderRadius:20,padding:"16px",marginBottom:18}}>
-        <div style={{fontWeight:800,fontSize:15,color:c.text,marginBottom:12}}>📅 Weekly Program</div>
+        <div style={{fontWeight:800,fontSize:15,color:c.text,marginBottom:12}}> Weekly Program</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4,marginBottom:12}}>
           {DAYS.map(day=>{
             const rid=weekPlan[day];
@@ -202,7 +276,7 @@ export default function RoutinesPage({c,unit="kg",onUse,customRoutines,onSaveCus
         {schedDay&&<div>
           <div style={{fontSize:12,color:c.sub,marginBottom:8,fontWeight:700}}>{schedDay} — assign a routine:</div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            <button onClick={()=>{saveWeekPlan({...weekPlan,[schedDay]:null});setSchedDay(null);}} style={{background:c.rs,border:"none",borderRadius:10,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",color:c.r,fontFamily:"inherit"}}>✕ Rest day</button>
+            <button onClick={()=>{saveWeekPlan({...weekPlan,[schedDay]:null});setSchedDay(null);}} style={{background:c.rs,border:"none",borderRadius:10,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",color:c.r,fontFamily:"inherit"}}> Rest day</button>
             {allRoutines.map(r=>(
               <button key={r.id} onClick={()=>{saveWeekPlan({...weekPlan,[schedDay]:r.id});setSchedDay(null);}}
                 style={{background:r.col+"22",border:"1px solid "+r.col+"55",borderRadius:10,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",color:r.col,fontFamily:"inherit"}}>{r.name}</button>
@@ -211,43 +285,81 @@ export default function RoutinesPage({c,unit="kg",onUse,customRoutines,onSaveCus
         </div>}
       </div>}
 
-      {/* Built-in routines */}
-      {TMPLS.length>0&&<div style={{fontSize:11,color:c.sub,fontWeight:700,letterSpacing:"0.07em",marginBottom:10}}>BUILT-IN</div>}
-      {TMPLS.map(t=>{const isO=open===t.id;return(
-        <div key={t.id} style={{background:c.card,border:"1px solid "+c.border,borderRadius:20,padding:"15px 14px",marginBottom:11}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:isO?11:0}}>
-            <div><span style={{background:t.col+"22",color:t.col,borderRadius:20,padding:"2px 9px",fontSize:11,fontWeight:700}}>{t.tag}</span><div style={{fontWeight:900,fontSize:17,color:c.text,marginTop:4,letterSpacing:"-0.02em"}}>{t.name}</div><div style={{fontSize:12,color:c.sub,marginTop:1}}>{t.exercises.length} exercises</div></div>
-            <div style={{display:"flex",gap:6}}><GBtn onClick={()=>setOpen(isO?null:t.id)} c={c} style={{padding:"7px 10px",fontSize:11}}>{isO?"Hide":"Preview"}</GBtn><PBtn onClick={()=>onUse(t)} c={c} style={{padding:"7px 13px",fontSize:12}}>Start</PBtn></div>
-          </div>
-          {isO&&<div style={{borderTop:"1px solid "+c.border,paddingTop:10}}>{t.exercises.map((e,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"7px 0",borderBottom:"1px solid "+c.border,color:c.sub}}><span style={{color:c.text,fontWeight:600}}>{e.name}</span><span>{e.sets.length}×{e.sets[0].reps} @ {unit==="lb"?Math.round(kgToLb(e.sets[0].weight)):e.sets[0].weight}{unit}</span></div>)}</div>}
-        </div>
-      );})}
+      {/* ── Shared routine card renderer ── */}
+      {(()=>{
+        const RoutineCard=({t,builtin})=>(
+          <button key={t.id} onClick={()=>setSelectedRoutine({...t,builtin})}
+            style={{width:"100%",display:"flex",alignItems:"center",gap:10,
+              background:c.card,border:"1.5px solid "+t.col+"44",
+              borderRadius:16,padding:"10px 12px",marginBottom:7,
+              cursor:"pointer",fontFamily:"inherit",textAlign:"left",
+              boxSizing:"border-box",transition:"background .2s"}}>
+            <div style={{width:3,height:36,borderRadius:2,background:t.col,flexShrink:0}}/>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontWeight:800,fontSize:14,color:c.text,letterSpacing:"-0.01em",
+                overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:2}}>{t.name}</div>
+              <div style={{fontSize:11,color:c.sub,display:"flex",alignItems:"center",gap:4,flexWrap:"nowrap",overflow:"hidden"}}>
+                <span style={{color:t.col,fontWeight:700,flexShrink:0}}>{t.tag||"Custom"}</span>
+                {t.block&&<><span style={{opacity:0.4}}>·</span><span style={{flexShrink:0}}>{t.block}</span></>}
+                <span style={{opacity:0.4}}>·</span>
+                <span style={{flexShrink:0}}>{t.exercises.length} ex</span>
+              </div>
+            </div>
+            <button onClick={e=>{e.stopPropagation();onUse(t);}}
+              style={{background:t.col,border:"none",borderRadius:10,padding:"8px 12px",
+                fontSize:12,fontWeight:700,cursor:"pointer",color:"#fff",fontFamily:"inherit",
+                flexShrink:0,minHeight:40,whiteSpace:"nowrap"}}>▶ Start</button>
+            {!builtin&&<button onClick={e=>{e.stopPropagation();setRoutineOptionsFor(t);}}
+              style={{background:c.card2,border:"1px solid "+c.border,borderRadius:9,
+                padding:"8px 9px",fontSize:17,cursor:"pointer",color:c.sub,
+                fontFamily:"inherit",flexShrink:0,minHeight:40,minWidth:40,
+                display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>⋯</button>}
+          </button>
+        );
+        return(<>
+          {TMPLS.length>0&&<div style={{fontSize:11,color:c.sub,fontWeight:700,letterSpacing:"0.07em",marginBottom:8}}>BUILT-IN</div>}
+          {TMPLS.map(t=><RoutineCard key={t.id} t={t} builtin={true}/>)}
+          {customRoutines.length>0&&<div style={{fontSize:11,color:c.sub,fontWeight:700,letterSpacing:"0.07em",margin:"14px 0 8px"}}>MY PLANS</div>}
+          {customRoutines.map(t=><RoutineCard key={t.id} t={t} builtin={false}/>)}
+          {customRoutines.length===0&&<div style={{background:c.card,border:"2px dashed "+c.border,borderRadius:18,padding:"22px 18px",textAlign:"center",marginTop:4}}>
+            <div style={{fontSize:28,marginBottom:8}}></div>
+            <div style={{fontWeight:700,fontSize:14,color:c.text,marginBottom:5}}>No custom plans yet</div>
+            <div style={{fontSize:12,color:c.sub,marginBottom:14}}>Build your own programs with exercises, sets and weights.</div>
+            <PBtn onClick={openNew} c={c} style={{margin:"0 auto"}}><IPlus/> Create First Routine</PBtn>
+          </div>}
+        </>);
+      })()}
 
-      {/* Custom routines */}
-      {customRoutines.length>0&&<div style={{fontSize:11,color:c.sub,fontWeight:700,letterSpacing:"0.07em",margin:"18px 0 10px"}}>MY ROUTINES</div>}
-      {customRoutines.map(t=>{const isO=open===t.id;return(
-        <div key={t.id} style={{background:c.card,border:"1px solid "+t.col+"55",borderRadius:20,padding:"15px 14px",marginBottom:11}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:isO?11:0}}>
-            <div><div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:3}}><span style={{background:t.col+"22",color:t.col,borderRadius:20,padding:"2px 9px",fontSize:11,fontWeight:700}}>{t.tag||"Custom"}</span>{t.block&&<span style={{background:c.card2,color:c.sub,borderRadius:20,padding:"2px 9px",fontSize:11,fontWeight:700}}>{t.block}</span>}</div><div style={{fontWeight:900,fontSize:17,color:c.text,marginTop:2,letterSpacing:"-0.02em"}}>{t.name}</div><div style={{fontSize:12,color:c.sub,marginTop:1}}>{t.exercises.length} exercises</div></div>
-            <div style={{display:"flex",gap:6}}>
-              <GBtn onClick={()=>setOpen(isO?null:t.id)} c={c} style={{padding:"7px 10px",fontSize:11}}>{isO?"Hide":"Preview"}</GBtn>
-              <GBtn onClick={()=>openEdit(t)} c={c} style={{padding:"7px 10px",fontSize:11}}>Edit</GBtn>
-              <PBtn onClick={()=>onUse(t)} c={c} style={{padding:"7px 13px",fontSize:12}}>Start</PBtn>
+      {/* ⋯ options portal for custom routines */}
+      {routineOptionsFor&&createPortal(
+        <div onClick={()=>setRoutineOptionsFor(null)}
+          style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:9250,
+            display:"flex",alignItems:"flex-end",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)"}}>
+          <div onClick={e=>e.stopPropagation()} className="il-slide-up"
+            style={{background:c.card,borderRadius:"24px 24px 0 0",width:"100%",maxWidth:430,
+              margin:"0 auto",padding:"20px 16px",
+              paddingBottom:"calc(env(safe-area-inset-bottom,0px) + 20px)",
+              boxSizing:"border-box"}}>
+            <div style={{width:36,height:4,background:c.border,borderRadius:99,margin:"0 auto 16px"}}/>
+            <div style={{fontWeight:900,fontSize:17,color:c.text,marginBottom:4}}>{routineOptionsFor.name}</div>
+            <div style={{fontSize:12,color:c.sub,marginBottom:20}}>{routineOptionsFor.exercises.length} exercises</div>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              <button onClick={()=>{setRoutineOptionsFor(null);openEdit(routineOptionsFor);}}
+                style={{width:"100%",background:c.card2,border:"1px solid "+c.border,borderRadius:14,
+                  padding:"14px",fontSize:14,fontWeight:700,cursor:"pointer",color:c.text,
+                  fontFamily:"inherit",display:"flex",alignItems:"center",gap:10}}>
+                Edit Plan
+              </button>
+              <button onClick={()=>{dlgConfirm("Delete "+routineOptionsFor.name+"?").then(ok=>{if(ok){onDeleteCustom(routineOptionsFor.id);setRoutineOptionsFor(null);}});}}
+                style={{width:"100%",background:c.rs,border:"1px solid "+c.r+"33",borderRadius:14,
+                  padding:"14px",fontSize:14,fontWeight:700,cursor:"pointer",color:c.r,
+                  fontFamily:"inherit",display:"flex",alignItems:"center",gap:10}}>
+                <ITrash/> Delete Plan
+              </button>
             </div>
           </div>
-          {isO&&<div style={{borderTop:"1px solid "+c.border,paddingTop:10}}>
-            {t.exercises.map((e,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"7px 0",borderBottom:"1px solid "+c.border,color:c.sub}}><span style={{color:c.text,fontWeight:600}}>{e.name}</span><span>{e.sets.length}×{e.sets[0].reps} @ {unit==="lb"?Math.round(kgToLb(e.sets[0].weight)):e.sets[0].weight}{unit}</span></div>)}
-            <button onClick={()=>dlgConfirm("Delete "+t.name+"?").then(ok=>{if(ok)onDeleteCustom(t.id);})} style={{marginTop:10,background:c.rs,border:"none",borderRadius:10,padding:"8px 14px",fontSize:12,fontWeight:700,cursor:"pointer",color:c.r,fontFamily:"inherit"}}>Delete routine</button>
-          </div>}
         </div>
-      );})}
-
-      {customRoutines.length===0&&<div style={{background:c.card,border:"2px dashed "+c.border,borderRadius:20,padding:"28px 20px",textAlign:"center",marginTop:6}}>
-        <div style={{fontSize:32,marginBottom:10}}>📋</div>
-        <div style={{fontWeight:700,fontSize:15,color:c.text,marginBottom:6}}>No custom routines yet</div>
-        <div style={{fontSize:13,color:c.sub,marginBottom:16}}>Create your own workout plans with your exercises, sets and weights.</div>
-        <PBtn onClick={openNew} c={c} style={{margin:"0 auto"}}><IPlus/> Create First Routine</PBtn>
-      </div>}
+      ,document.body)}
     </div>
   );
 }

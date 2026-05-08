@@ -4,14 +4,14 @@ import LZString from 'lz-string';
 
 const CHUNK_SIZE = 800; // chars per QR chunk
 
-export default function QRTransfer({hist,customRoutines,bwLog,customExercises,c,onClose}){
+export default function QRTransfer({hist,customPlans,bwLog,customExercises,c,onClose}){
   const [qrUrls,setQrUrls]=useState([]);
   const [page,setPage]=useState(0);
   const [generating,setGenerating]=useState(true);
   const [error,setError]=useState("");
 
   useEffect(()=>{
-    const data={version:3,date:new Date().toISOString().slice(0,10),workouts:hist,customRoutines,bwLog,customExercises};
+    const data={version:3,date:new Date().toISOString().slice(0,10),workouts:hist,customPlans,bwLog,customExercises};
     const json=JSON.stringify(data);
     const compressed=LZString.compressToEncodedURIComponent(json);
     const chunks=[];
@@ -32,7 +32,7 @@ export default function QRTransfer({hist,customRoutines,bwLog,customExercises,c,
   return(
     <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
       <div onClick={e=>e.stopPropagation()} style={{background:c.card,borderRadius:24,padding:24,width:"100%",maxWidth:340,textAlign:"center"}}>
-        <div style={{fontWeight:900,fontSize:18,color:c.text,marginBottom:4}}>📱 QR Transfer</div>
+        <div style={{fontWeight:900,fontSize:18,color:c.text,marginBottom:4}}> QR Transfer</div>
         <div style={{fontSize:12,color:c.sub,marginBottom:16,lineHeight:1.5}}>
           Open IronLog on your other device → Backup → Restore QR, then scan {qrUrls.length>1?"each code in order":"this code"}.
         </div>
@@ -95,9 +95,9 @@ export function QRImportReceiver({c,onImport,onClose}){
   return(
     <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
       <div onClick={e=>e.stopPropagation()} style={{background:c.card,borderRadius:24,padding:24,width:"100%",maxWidth:340,textAlign:"center"}}>
-        <div style={{fontWeight:900,fontSize:18,color:c.text,marginBottom:8}}>📷 Scan QR Code</div>
+        <div style={{fontWeight:900,fontSize:18,color:c.text,marginBottom:8}}> Scan QR Code</div>
         {done
-          ?<div style={{color:c.g,fontSize:15,fontWeight:700,padding:"20px 0"}}>✅ Data imported successfully!</div>
+          ?<div style={{color:c.g,fontSize:15,fontWeight:700,padding:"20px 0"}}> Data imported successfully!</div>
           :<>
             <div style={{fontSize:13,color:c.sub,marginBottom:16,lineHeight:1.5}}>
               Paste the QR text below (or use your phone camera and copy the text):

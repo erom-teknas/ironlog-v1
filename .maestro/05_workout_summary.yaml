@@ -1,0 +1,66 @@
+appId: com.apple.mobilesafari
+---
+# TC: Finish workout → post-workout summary sheet
+
+- launchApp
+- tapOn:
+    text: "Start Workout"
+- tapOn:
+    text: "+ Add"
+- tapOn:
+    text: "Chest"
+- tapOn:
+    text: "Bench Press"
+- tapOn:
+    text: "Bench Press"   # open focus mode
+
+# Enter weight and reps
+- tapOn:
+    text: "WEIGHT"
+- inputText: "60"
+- tapOn:
+    text: "REPS"
+- inputText: "8"
+- tapOn:
+    text: "Mark Done"
+- tapOn:
+    text: "← Back"
+
+# Finish the workout
+- tapOn:
+    text: "Finish"        # topbar button
+
+# Summary sheet must appear
+- assertVisible:
+    text: "Workout Complete!"
+- assertVisible:
+    text: "Duration"
+- assertVisible:
+    text: "Volume"
+- assertVisible:
+    text: "Sets done"
+- assertVisible:
+    text: "MUSCLES TRAINED"
+- assertVisible:
+    text: "EXERCISES"
+- assertVisible:
+    text: "Bench Press"
+
+# Summary must be scrollable
+- scroll:
+    direction: DOWN
+    duration: 500
+
+# Done button closes summary and goes to home
+- tapOn:
+    text: "Done 💪"
+- assertVisible:
+    text: "Start Workout"  # back on home
+- assertNotVisible:
+    text: "Workout Complete!"
+
+# Workout must be saved — check history
+- tapOn:
+    text: "HISTORY"
+- assertVisible:
+    text: "Bench Press"

@@ -10,17 +10,55 @@ export function useConfirm(c){
   const confirm=(msg)=>new Promise(resolve=>{setState({msg,resolve});});
   const respond=(ok)=>{if(state){state.resolve(ok);setState(null);}};
   const confirmEl=state?(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-      <div style={{background:c.card,borderRadius:22,padding:"24px 20px",width:"100%",maxWidth:320,boxShadow:"0 20px 60px rgba(0,0,0,0.5)"}}>
+    // Backdrop: tap outside = Cancel. cursor:pointer + touchAction:manipulation = no iOS 300ms delay
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",
+      padding:"24px 24px calc(24px + env(safe-area-inset-bottom,0px))",cursor:"pointer",touchAction:"manipulation"}}
+      onClick={()=>respond(false)}>
+      <div style={{background:c.card,borderRadius:22,padding:"24px 20px",width:"100%",maxWidth:320,boxShadow:"0 20px 60px rgba(0,0,0,0.5)",cursor:"default"}}
+        onClick={e=>e.stopPropagation()}>
         <div style={{fontSize:15,fontWeight:700,color:c.text,marginBottom:20,lineHeight:1.5,textAlign:"center"}}>{state.msg}</div>
         <div style={{display:"flex",gap:10}}>
-          <button onClick={()=>{haptic("light");respond(false);}} style={{flex:1,background:c.card2,border:"1px solid "+c.border,borderRadius:13,padding:"11px",fontSize:14,fontWeight:700,cursor:"pointer",color:c.sub,fontFamily:"inherit"}}>Cancel</button>
-          <button onClick={()=>{haptic("medium");respond(true);}} style={{flex:1,background:c.r,border:"none",borderRadius:13,padding:"11px",fontSize:14,fontWeight:700,cursor:"pointer",color:"#fff",fontFamily:"inherit"}}>OK</button>
+          <button onClick={()=>{haptic("light");respond(false);}} style={{flex:1,background:c.card2,border:"1px solid "+c.border,borderRadius:13,padding:"13px",fontSize:14,fontWeight:700,cursor:"pointer",color:c.sub,fontFamily:"inherit",minHeight:44}}>Cancel</button>
+          <button onClick={()=>{haptic("medium");respond(true);}} style={{flex:1,background:c.r,border:"none",borderRadius:13,padding:"13px",fontSize:14,fontWeight:700,cursor:"pointer",color:"#fff",fontFamily:"inherit",minHeight:44}}>OK</button>
         </div>
       </div>
     </div>
   ):null;
   return{confirm,confirmEl};
+}
+
+// ─── Three-way dialog: Merge / Replace / Cancel ────────────────────────────────
+// resolve("merge") | resolve("replace") | resolve("cancel")
+export function useImportDialog(c){
+  const [state,setState]=useState(null);
+  const show=(msg)=>new Promise(resolve=>setState({msg,resolve}));
+  const respond=(v)=>{if(state){state.resolve(v);setState(null);}};
+  const el=state?(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:9999,display:"flex",alignItems:"flex-end",justifyContent:"center",
+      padding:"0 16px calc(24px + env(safe-area-inset-bottom,0px))",touchAction:"manipulation"}}
+      onClick={()=>respond("cancel")}>
+      <div style={{background:c.card,borderRadius:22,padding:"20px",width:"100%",maxWidth:420,boxShadow:"0 20px 60px rgba(0,0,0,0.5)",cursor:"default"}}
+        onClick={e=>e.stopPropagation()}>
+        <div style={{fontSize:15,fontWeight:700,color:c.text,marginBottom:6,textAlign:"center"}}>Restore Cloud Backup</div>
+        <div style={{fontSize:13,color:c.sub,marginBottom:20,textAlign:"center",lineHeight:1.5}}>{state.msg}</div>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          <button onClick={()=>{haptic("medium");respond("merge");}}
+            style={{background:c.accent,border:"none",borderRadius:13,padding:"14px",fontSize:14,fontWeight:800,cursor:"pointer",color:"#fff",fontFamily:"inherit",minHeight:44}}>
+            Merge — keep everything, add new from backup
+          </button>
+          <button onClick={()=>{haptic("medium");respond("replace");}}
+            style={{background:c.rs,border:"1.5px solid "+c.r+"66",borderRadius:13,padding:"14px",fontSize:14,fontWeight:800,cursor:"pointer",color:c.r,fontFamily:"inherit",minHeight:44}}>
+            Replace — overwrite with backup only
+          </button>
+          <button onClick={()=>{haptic("light");respond("cancel");}}
+            style={{background:c.card2,border:"1px solid "+c.border,borderRadius:13,padding:"13px",fontSize:13,fontWeight:700,cursor:"pointer",color:c.sub,fontFamily:"inherit",minHeight:44}}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  ):null;
+  return{show,importDialogEl:el};
 }
 
 // ─── Audio helpers ─────────────────────────────────────────────────────────────

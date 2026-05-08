@@ -13,7 +13,18 @@
       "Bash(git -C /Volumes/SSD250GB/Downloads/ironLog_v1 status)",
       "Bash(git init *)",
       "Bash(git add *)",
-      "Bash(git commit -m 'Initial commit: IronLog PWA with Vite build *)"
+      "Bash(git commit -m 'Initial commit: IronLog PWA with Vite build *)",
+      "Bash(git rm *)",
+      "Bash(git commit -m 'Fix .gitignore: exclude node_modules, dist, macOS junk files *)",
+      "Bash(git -C /Volumes/SSD250GB/Downloads/ironLog_v1 status --porcelain)",
+      "Bash(vercel link *)",
+      "Bash(vercel *)",
+      "Bash(xargs sed *)",
+      "Bash(awk '{print $5, $9}')",
+      "Bash(git commit -m ' *)",
+      "Bash(node -e \"require\\('lucide-react'\\); console.log\\('ok'\\)\")",
+      "Bash(git commit -m 'Fix overlapping month labels in activity streak calendar *)",
+      "Bash(git commit -m 'Fix minY/maxY not destructured in WeightChart *)"
     ]
   }
 }

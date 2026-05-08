@@ -1,0 +1,62 @@
+appId: com.apple.mobilesafari  # or your PWA bundle id if wrapped
+---
+# TC-01 to TC-09: Navigation & Tab Bar
+- launchApp
+- assertVisible:
+    text: "IronLog"
+- assertVisible:
+    text: "HOME"
+- assertVisible:
+    text: "LOG"
+- assertVisible:
+    text: "PLAN"
+- assertVisible:
+    text: "PROGRESS"
+- assertVisible:
+    text: "HISTORY"
+- assertVisible:
+    text: "SETTINGS"
+
+# Tap each tab and assert it loads
+- tapOn:
+    text: "PLAN"
+- assertVisible:
+    text: "Plans"
+- assertVisible:
+    text: "Built-in & your own programs."
+
+- tapOn:
+    text: "PROGRESS"
+- assertVisible:
+    text: "Progress"
+
+- tapOn:
+    text: "HISTORY"
+- assertVisible:
+    text: "History"
+
+- tapOn:
+    text: "PRs"
+- assertVisible:
+    text: "Personal Records"
+
+- tapOn:
+    text: "SETTINGS"
+- assertVisible:
+    text: "Settings"
+
+- tapOn:
+    text: "HOME"
+- assertVisible:
+    text: "Start Workout"
+- assertVisible:
+    text: "Use Plan"
+
+# Nav bar must be at screen bottom — assert it is not scrolled out of view
+- assertVisible:
+    text: "LOG"
+- scroll:
+    direction: DOWN
+    duration: 1000
+- assertVisible:
+    text: "LOG"  # Nav must survive scroll

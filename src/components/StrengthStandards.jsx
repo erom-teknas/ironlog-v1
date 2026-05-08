@@ -68,11 +68,11 @@ export default function StrengthStandards({ hist, c, unit, bwKg = 0 }) {
     <CollapsibleSection title="Strength Standards" icon={<IMedal/>} sub={found.length ? `${found.length} lift${found.length > 1 ? 's' : ''} tracked` : 'Log bench, squat, deadlift to compare'} c={c} defaultOpen={false}>
       {/* Gender toggle */}
       <div style={{ display: 'flex', gap: 4, background: c.card2, borderRadius: 10, padding: 3, marginBottom: 14, width: 'fit-content' }}>
-        {[{k:'male',l:'♂ Male'},{k:'female',l:'♀ Female'}].map(g => (
+        {[{k:'male',l:'Male'},{k:'female',l:'Female'}].map(g => (
           <button key={g.k} onClick={() => setGenderSave(g.k)} style={{ border: 'none', borderRadius: 7, padding: '5px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', background: gender === g.k ? c.accent : 'none', color: gender === g.k ? '#fff' : c.sub }}>{g.l}</button>
         ))}
       </div>
-      {noBw && <div style={{ background: c.ams, borderRadius: 10, padding: '8px 12px', fontSize: 12, color: c.am, marginBottom: 12 }}>⚠️ Log your bodyweight on the Home tab to see level comparisons.</div>}
+      {noBw && <div style={{ background: c.ams, borderRadius: 10, padding: '8px 12px', fontSize: 12, color: c.am, marginBottom: 12 }}>! Log your bodyweight on the Home tab to see level comparisons.</div>}
       {data.map(d => (
         <div key={d.name} style={{ marginBottom: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
@@ -95,7 +95,7 @@ export default function StrengthStandards({ hist, c, unit, bwKg = 0 }) {
               {Math.round((d.nextThresh - d.rm1) * 10) / 10}{unit} to <span style={{ color: LEVEL_COLS[d.nextLevel], fontWeight: 700 }}>{LEVELS[d.nextLevel]}</span>
             </div>
           )}
-          {d.level === LEVELS.length - 1 && <div style={{ fontSize: 10, color: LEVEL_COLS[4], fontWeight: 700 }}>🏆 Elite level reached!</div>}
+          {d.level === LEVELS.length - 1 && <div style={{ fontSize: 10, color: LEVEL_COLS[4], fontWeight: 700 }}>Elite level reached!</div>}
         </div>
       ))}
       <div style={{ fontSize: 10, color: c.sub, marginTop: 4, lineHeight: 1.5 }}>
