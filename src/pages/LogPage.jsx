@@ -97,15 +97,15 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
   const photoTargetRef=useRef(null);
   const [photoBusy,setPhotoBusy]=useState(false);
 
-  // Open YouTube in the user's preferred app. On iOS PWA, window.open with
-  // a YouTube URL triggers a universal link that hands off to the YouTube
-  // app (or Safari if not installed). Same behavior on Android. On desktop,
-  // it opens a new tab.
-  const openYouTube=useCallback((name)=>{
+  // Build a YouTube watch URL for the given exercise. iOS only triggers
+  // universal links (the thing that hands off to the YouTube app) when the
+  // user taps a real <a href>, NOT when JS calls window.open — that just
+  // pops an in-PWA Safari overlay with a blank URL bar. So the video
+  // button is rendered as <a target="_blank"> when a URL is set.
+  const videoWatchUrl=useCallback((name)=>{
     const demo=exerciseDemos[name];
-    if(!demo||!demo.videoId){setDemoEditFor(name);return;}
-    const url="https://www.youtube.com/watch?v="+demo.videoId;
-    window.open(url,'_blank','noopener,noreferrer');
+    if(!demo||!demo.videoId)return null;
+    return "https://www.youtube.com/watch?v="+demo.videoId;
   },[exerciseDemos]);
 
   // Trigger photo upload: stash the target exercise name in a ref, then
@@ -916,6 +916,7 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
                   {(()=>{
                     const hasV=!!exerciseDemos[ex.name];
                     const hasP=!!exercisePhotos[ex.name];
+                    const watchUrl=videoWatchUrl(ex.name);
                     const btnStyle=(active)=>({
                       background:active?c.accent+"22":c.card2,
                       border:"1px solid "+(active?c.accent+"55":c.border),
@@ -925,17 +926,36 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
                       color:active?c.accent:c.sub,
                       cursor:"pointer",fontFamily:"inherit",flexShrink:0,
                       padding:0,
+                      textDecoration:"none",
                     });
                     return (
                       <>
-                        <button
-                          onClick={()=>{haptic("light");openYouTube(ex.name);}}
-                          onContextMenu={(e)=>{e.preventDefault();setDemoEditFor(ex.name);}}
-                          aria-label={hasV?"Open video in YouTube":"Add YouTube URL"}
-                          style={btnStyle(hasV)}
-                        >
-                          {hasV?<IPlay/>:<IVideo/>}
-                        </button>
+                        {hasV ? (
+                          // <a> with target="_blank" lets iOS trigger the YouTube
+                          // universal link → opens the YT app, IronLog stays in
+                          // the background. window.open does NOT do this in
+                          // standalone PWAs.
+                          <a
+                            href={watchUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={()=>haptic("light")}
+                            onContextMenu={(e)=>{e.preventDefault();setDemoEditFor(ex.name);}}
+                            aria-label="Open video in YouTube"
+                            style={btnStyle(true)}
+                          >
+                            <IPlay/>
+                          </a>
+                        ) : (
+                          <button
+                            onClick={()=>{haptic("light");setDemoEditFor(ex.name);}}
+                            onContextMenu={(e)=>{e.preventDefault();setDemoEditFor(ex.name);}}
+                            aria-label="Add YouTube URL"
+                            style={btnStyle(false)}
+                          >
+                            <IVideo/>
+                          </button>
+                        )}
                         <button
                           onClick={()=>{haptic("light");onPhotoTap(ex.name);}}
                           onContextMenu={(e)=>{e.preventDefault();if(exercisePhotos[ex.name])setPhotoViewFor(ex.name);else triggerPhotoUpload(ex.name);}}
