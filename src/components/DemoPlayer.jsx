@@ -12,10 +12,25 @@
 //    creator has disabled embedding — the embed iframe just shows a white
 //    error pane and there's nothing we can do client-side to detect that.
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { buildEmbedUrl, getYouTubeThumbnail } from '../demoUtils';
 import { IX, IPlay, ICamera } from '../icons';
+
+// Detect whether we're running as a home-screen PWA (iOS or Android). In
+// that mode, the WKWebView/Chrome WebView is more restrictive than the
+// host browser — YouTube iframes routinely render blank with no error,
+// no matter what referrer/sandbox/domain tricks we try. We fall back to
+// opening the YouTube URL externally for PWAs, where universal links
+// hand off to the YouTube app (or Safari if not installed).
+function isStandalonePWA() {
+  if (typeof window === 'undefined') return false;
+  try {
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+    if (window.navigator && window.navigator.standalone === true) return true;
+  } catch (_e) { /* noop */ }
+  return false;
+}
 
 export default function DemoPlayer({ demo, photo, exerciseName, c, onClose, onEdit }) {
   const iframeRef = useRef(null);
@@ -25,13 +40,13 @@ export default function DemoPlayer({ demo, photo, exerciseName, c, onClose, onEd
   const hasVideo = !!(demo && demo.videoId);
   const hasPhoto = !!(photo && photo.dataUrl);
   const [view, setView] = useState(hasPhoto ? 'photo' : 'video');
-  // Facade pattern: we render a thumbnail until the user taps play, THEN
-  // mount the iframe. Reason: iOS PWA WKWebView silently refuses to autoplay
-  // cross-origin iframes even when they're muted + playsinline. Creating the
-  // iframe inside the tap handler gives it fresh user-gesture context, which
-  // WKWebView accepts. Side benefit: way faster modal open (no YouTube
-  // player loaded until needed).
+  // Facade pattern: render a thumbnail until the user taps play. Two reasons:
+  //  - on non-PWA contexts (Safari, desktop), creating the iframe inside the
+  //    tap handler gives it fresh gesture context so autoplay works;
+  //  - on PWA contexts (where iframe playback is broken outright in WKWebView),
+  //    we use the tap to open the YouTube app via universal link instead.
   const [playing, setPlaying] = useState(false);
+  const pwaMode = useMemo(() => isStandalonePWA(), []);
 
   // Defensive: if props change (caller swaps which media exists), force a
   // valid view. Otherwise we'd render <iframe> with no demo etc.
@@ -191,12 +206,19 @@ export default function DemoPlayer({ demo, photo, exerciseName, c, onClose, onEd
                 style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
               />
             ) : (
-              // Thumbnail facade — tapping this creates the iframe IN the
-              // gesture handler, which is what WKWebView needs to allow
-              // autoplay on the cross-origin YouTube embed.
+              // Thumbnail facade. In a regular browser, tapping mounts the
+              // iframe (gesture-context unlocks autoplay). In standalone PWA
+              // mode the iframe is unreliable, so we hand off to the YouTube
+              // app via universal link instead — works 100% of the time.
               <button
-                onClick={() => setPlaying(true)}
-                aria-label="Play demo"
+                onClick={() => {
+                  if (pwaMode) {
+                    window.open(watchUrl, '_blank', 'noopener,noreferrer');
+                  } else {
+                    setPlaying(true);
+                  }
+                }}
+                aria-label={pwaMode ? 'Open in YouTube' : 'Play demo'}
                 style={{
                   position: 'absolute', inset: 0,
                   width: '100%', height: '100%',
@@ -240,7 +262,7 @@ export default function DemoPlayer({ demo, photo, exerciseName, c, onClose, onEd
                     </div>
                   </div>
                   <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: 700, letterSpacing: '0.02em' }}>
-                    Tap to play
+                    {pwaMode ? 'Tap to open in YouTube' : 'Tap to play'}
                   </div>
                 </div>
               </button>
