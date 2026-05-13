@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="IronLog"/>
+<meta name="theme-color" content="#0c0c12"/>
+<meta name="description" content="IronLog — Track. Lift. Grow."/>
+<title>IronLog</title>
+
+<!-- Apple touch icon -->
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='120' fill='%237C6EFA'/><text x='256' y='340' text-anchor='middle' font-size='280'>🏋️</text></svg>"/>
+
+<style>
+/* ─── Design tokens ──────────────────────────────────────────────────────── */
+:root{
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  /* Timing curves */
+  --t-fast:   0.14s cubic-bezier(0.4,0,0.2,1);
+  --t-base:   0.24s cubic-bezier(0.4,0,0.2,1);
+  --t-spring: 0.42s cubic-bezier(0.34,1.56,0.64,1);
+  --t-exit:   0.18s cubic-bezier(0.4,0,1,1);
+  /* Radii */
+  --r-sm:10px; --r-md:16px; --r-lg:22px; --r-xl:28px; --r-full:9999px;
+}
+
+/* ─── Reset & base ───────────────────────────────────────────────────────── */
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+/* ── Base: shared by browser + PWA ── */
+html{background:#0c0c12;
+  /* overscroll-behavior-y:none prevents pull-to-refresh without locking scroll physics */
+  overscroll-behavior-y:none;}
+body{margin:0;padding:0;background:#0c0c12;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-serif;
+  overscroll-behavior-y:none;-webkit-font-smoothing:antialiased;}
+#root{background:inherit;}
+
+/* ─── Layout shells ──────────────────────────────────────────────────────── */
+.il-topbar{
+  position:fixed;top:0;left:0;right:0;margin:0 auto;
+  width:100%;max-width:430px;z-index:60;
+  padding-top:env(safe-area-inset-top,0px);
+}
+
+/* Scroll container — Android Chrome PWA requires explicit touch-action:pan-y
+   so the browser recognises vertical swipe on buttons/cards inside the scroll area.
+   Without this, touch-action:manipulation on buttons blocks scroll pass-through. */
+.il-scroll{
+  min-height:100dvh;
+  padding-top:calc(54px + env(safe-area-inset-top,0px));
+  padding-bottom:calc(70px + env(safe-area-inset-bottom,0px));
+  overflow-x:hidden;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-x:none;
+  overscroll-behavior-y:contain;
+}
+/* touch-action:pan-y only on real touch devices — not Mac trackpad */
+@media(pointer:coarse){
+  .il-scroll{touch-action:pan-y;}
+}
+.il-nav{
+  position:fixed;bottom:0;left:0;right:0;margin:0 auto;
+  width:100%;max-width:430px;z-index:50;
+  padding-top:0;padding-bottom:env(safe-area-inset-bottom,8px);
+  overflow:hidden;
+}
+
+/* ─── Form resets ────────────────────────────────────────────────────────── */
+/* Prevent iOS auto-zoom: all inputs >= 16px */
+input,select,textarea{font-size:16px;}
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+input[type=number]{-moz-appearance:textfield;}
+::-webkit-scrollbar{display:none;}
+*{scrollbar-width:none;}
+
+/* ─── Button micro-interaction ───────────────────────────────────────────── */
+/* touch-action:manipulation removes the 300ms iOS tap delay.
+   NOTE: .il-scroll overrides this to pan-y for its children via the cascade,
+   so swiping on buttons inside the scroll area still scrolls the page. */
+button,a,[role="button"]{touch-action:manipulation;}
+button{transition:transform var(--t-fast),opacity var(--t-fast),background var(--t-fast);}
+button:active{transform:scale(0.94)!important;opacity:0.82!important;}
+
+/* ─── Input focus glow ───────────────────────────────────────────────────── */
+input:focus,textarea:focus,select:focus{
+  outline:none;
+  box-shadow:0 0 0 2.5px rgba(124,110,250,0.4)!important;
+  border-color:rgba(124,110,250,0.65)!important;
+  transition:box-shadow var(--t-fast),border-color var(--t-fast);
+}
+
+/* ─── Keyframes ──────────────────────────────────────────────────────────── */
+@keyframes pop        {from{opacity:0;transform:scale(.72)}   to{opacity:1;transform:scale(1)}}
+@keyframes fadeOut    {from{opacity:1}                         to{opacity:0}}
+@keyframes flashFade  {0%{opacity:0.35}                        100%{opacity:0}}
+@keyframes slideInR   {from{opacity:0;transform:translateX(32px)} to{opacity:1;transform:translateX(0)}}
+@keyframes slideInL   {from{opacity:0;transform:translateX(-32px)}to{opacity:1;transform:translateX(0)}}
+@keyframes shimmer    {0%{background-position:200% 0}          100%{background-position:-200% 0}}
+@keyframes fadeInUp   {from{opacity:0;transform:translateY(12px)}  to{opacity:1;transform:translateY(0)}}
+@keyframes slideUpSpring{from{opacity:0;transform:translateY(28px) scale(0.95)} to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes springScale{0%{transform:scale(0.82);opacity:0} 60%{transform:scale(1.04)} 100%{transform:scale(1);opacity:1}}
+@keyframes flashGreen {0%,100%{background:transparent} 38%{background:rgba(16,217,160,0.16)}}
+@keyframes navDot     {from{transform:scale(0);opacity:0} to{transform:scale(1);opacity:1}}
+@keyframes il-barbell-bounce {0%,100%{transform:translateY(0) rotate(-5deg)} 50%{transform:translateY(-14px) rotate(5deg)}}
+@keyframes il-lifter-press {0%{transform:scaleY(1)} 25%{transform:scaleY(0.78)} 60%{transform:scaleY(1.12)} 100%{transform:scaleY(1)}}
+@keyframes il-confetti {0%{transform:translateY(0) rotate(0deg);opacity:1} 100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
+@keyframes il-timer-tick {0%{transform:translateX(-50%) scale(1);opacity:1} 35%{transform:translateX(-50%) scale(1.22);opacity:1} 100%{transform:translateX(-50%) scale(0.7);opacity:0}}
+@keyframes il-spot-pulse {0%,100%{box-shadow:0 0 0 9999px rgba(8,8,15,0.82),0 0 0 0 rgba(124,110,250,0.0);border-color:rgba(124,110,250,0.55)} 50%{box-shadow:0 0 0 9999px rgba(8,8,15,0.82),0 0 0 7px rgba(124,110,250,0.18);border-color:rgba(124,110,250,0.9)}}
+
+/* ─── Animation classes ──────────────────────────────────────────────────── */
+.il-enter-r  {animation:slideInR       .22s cubic-bezier(.25,.46,.45,.94) both}
+.il-enter-l  {animation:slideInL       .22s cubic-bezier(.25,.46,.45,.94) both}
+.il-fade-up  {animation:fadeInUp       .22s cubic-bezier(.25,.46,.45,.94) both}
+.il-slide-up {animation:slideUpSpring  .36s cubic-bezier(0.34,1.56,0.64,1) both}
+.il-spring   {animation:springScale    .38s cubic-bezier(0.34,1.56,0.64,1) both}
+.il-flash-g  {animation:flashGreen     .55s ease both}
+.il-skel     {background:linear-gradient(90deg,#131320 25%,#1e1e32 50%,#131320 75%);background-size:200% 100%;animation:shimmer 1.6s infinite;border-radius:12px}
+
+/* ─── Ghost copy placeholder (previous-set target) ──────────────────────── */
+/* Color is driven by --il-ghost-color set per-theme in App.jsx            */
+.il-ghost-input::placeholder{
+  color:var(--il-ghost-color,rgba(168,157,255,0.48));
+  opacity:1; /* Firefox resets placeholder opacity to 0.54 without this */
+  font-weight:600;
+  font-style:italic;
+}
+
+/* ─── Journal auto-expand textarea ──────────────────────────────────────── */
+.il-journal-area{
+  resize:none;
+  overflow:hidden;
+  min-height:72px;
+  field-sizing:content; /* Chrome 123+: native auto-height */
+}
+
+/* ─── Reduced-motion override ────────────────────────────────────────────── */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:0.01ms!important;transition-duration:0.01ms!important;}
+}
+</style>
+  <script type="module" crossorigin src="/assets/index-bQ97FJra.js"></script>
+<link rel="manifest" href="/manifest.webmanifest"></head>
+<body>
+<div id="root"></div>
+</body>
+</html>

@@ -4,8 +4,9 @@ import { BAR_TYPES, PLATES_LB, PLATES_KG, PCOL_LB, PCOL } from '../constants';
 import { uid, today, fmtD, calcVol, bestRM, calc1RM, kgToLb, fmtW, storeW, calcPlates, fmtVol, haptic, isCardioEx, getExInputType, isTimedEx } from '../utils';
 import { useConfirm } from '../hooks.jsx';
 import { ITrash, ICheck, IX, IBell, IStar, IActivity, IPencil, IBarbell, IPlay, IVideo, ICamera } from '../icons';
-import DemoPlayer from '../components/DemoPlayer';
 import DemoEditor from '../components/DemoEditor';
+import PhotoView from '../components/PhotoView';
+import { compressPhotoToDataURL } from '../photoUtils';
 import { Pill } from '../components/Primitives';
 import RestTimerCircle from '../components/RestTimerCircle';
 import PlateCircle from '../components/PlateCircle';
@@ -83,17 +84,64 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
   const {confirm:dlgConfirm,confirmEl}=useConfirm(c);
   const [platePickerFor,setPlatePickerFor]=useState(null);
   const [plateConfirmed,setPlateConfirmed]=useState({});
-  // Demo modal state — stores the exercise NAME (since exerciseDemos is name-keyed).
-  // demoPlayFor=name → DemoPlayer modal. demoEditFor=name → DemoEditor modal.
-  const [demoPlayFor,setDemoPlayFor]=useState(null);
+  // Demo / photo state — stores the exercise NAME (since the maps are
+  // name-keyed). Two completely separate flows now:
+  //   VIDEO: tap button → window.open(watchUrl) if URL set, else DemoEditor.
+  //   PHOTO: tap button → PhotoView if photo set, else trigger file picker.
   const [demoEditFor,setDemoEditFor]=useState(null);
-  // openDemo: if EITHER a video or a photo is set, open the player (which
-  // handles both). Otherwise open the editor so the user can add something.
-  const openDemo=useCallback((name)=>{
+  const [photoViewFor,setPhotoViewFor]=useState(null);
+  // Hidden file input shared by all per-exercise photo upload buttons. We
+  // remember which exercise the next file pick belongs to in a ref so the
+  // onChange handler knows where to save.
+  const photoFileInputRef=useRef(null);
+  const photoTargetRef=useRef(null);
+  const [photoBusy,setPhotoBusy]=useState(false);
+
+  // Open YouTube in the user's preferred app. On iOS PWA, window.open with
+  // a YouTube URL triggers a universal link that hands off to the YouTube
+  // app (or Safari if not installed). Same behavior on Android. On desktop,
+  // it opens a new tab.
+  const openYouTube=useCallback((name)=>{
+    const demo=exerciseDemos[name];
+    if(!demo||!demo.videoId){setDemoEditFor(name);return;}
+    const url="https://www.youtube.com/watch?v="+demo.videoId;
+    window.open(url,'_blank','noopener,noreferrer');
+  },[exerciseDemos]);
+
+  // Trigger photo upload: stash the target exercise name in a ref, then
+  // programmatically click the hidden file input. iOS will show the
+  // "Take Photo / Choose from Library" sheet automatically because of
+  // the capture="environment" attribute.
+  const triggerPhotoUpload=useCallback((name)=>{
     if(!name)return;
-    if(exerciseDemos[name]||exercisePhotos[name])setDemoPlayFor(name);
-    else setDemoEditFor(name);
-  },[exerciseDemos,exercisePhotos]);
+    photoTargetRef.current=name;
+    if(photoFileInputRef.current)photoFileInputRef.current.click();
+  },[]);
+
+  const onPhotoFileChange=useCallback(async(e)=>{
+    const file=e.target.files&&e.target.files[0];
+    e.target.value=''; // reset so picking the same file again still fires
+    const name=photoTargetRef.current;
+    photoTargetRef.current=null;
+    if(!file||!name||!onSetExPhoto)return;
+    setPhotoBusy(true);
+    try{
+      const dataUrl=await compressPhotoToDataURL(file);
+      onSetExPhoto(name,{dataUrl,addedAt:new Date().toISOString()});
+    }catch(err){
+      // Surface compression failures so the user knows their tap did something.
+      // appConfirm isn't available here; alert is fine for a rare error path.
+      try{alert((err&&err.message)||'Could not load that photo.');}catch(_e){}
+    }finally{
+      setPhotoBusy(false);
+    }
+  },[onSetExPhoto]);
+
+  // Photo tap dispatch: view existing photo, or trigger upload if none.
+  const onPhotoTap=useCallback((name)=>{
+    if(exercisePhotos[name])setPhotoViewFor(name);
+    else triggerPhotoUpload(name);
+  },[exercisePhotos,triggerPhotoUpload]);
   const seeded=useRef(false);
   // Refs so tog() can read current timer values without being recreated every tick
   const timerSecsRef=useRef(timerSecs);
@@ -700,28 +748,33 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
                   </div>
 
                   <div style={rowStyle}>
-                    <span style={labelStyle}>Demo / equipment photo</span>
+                    <span style={labelStyle}>Form video (YouTube)</span>
                     {(()=>{
                       const hasV=!!exerciseDemos[ex.name];
-                      const hasP=!!exercisePhotos[ex.name];
-                      const active=hasV||hasP;
-                      // Compact label: ✓ Video · ✓ Photo / + Add
                       return (
                         <button onClick={()=>{setExOptionsFor(null);setTimeout(()=>setDemoEditFor(ex.name),80);}}
-                          style={{background:active?c.accent+"22":c.card2,border:"1px solid "+(active?c.accent+"55":c.border),
+                          style={{background:hasV?c.accent+"22":c.card2,border:"1px solid "+(hasV?c.accent+"55":c.border),
                             borderRadius:9,padding:"7px 14px",fontSize:12,fontWeight:700,cursor:"pointer",
-                            color:active?c.accent:c.sub,fontFamily:"inherit",minHeight:36,
+                            color:hasV?c.accent:c.sub,fontFamily:"inherit",minHeight:36,
                             display:"flex",alignItems:"center",gap:6}}>
-                          {active ? (
-                            <>
-                              {hasV && <IPlay/>}
-                              {hasV && hasP && <span style={{opacity:0.5}}>·</span>}
-                              {hasP && <ICamera/>}
-                              <span style={{marginLeft:4}}>Edit</span>
-                            </>
-                          ) : (
-                            <><IVideo/> Add</>
-                          )}
+                          {hasV ? <><IPlay/> Edit</> : <><IVideo/> Add</>}
+                        </button>
+                      );
+                    })()}
+                  </div>
+
+                  <div style={rowStyle}>
+                    <span style={labelStyle}>Equipment photo</span>
+                    {(()=>{
+                      const hasP=!!exercisePhotos[ex.name];
+                      return (
+                        <button onClick={()=>{setExOptionsFor(null);setTimeout(()=>{if(hasP)setPhotoViewFor(ex.name);else triggerPhotoUpload(ex.name);},80);}}
+                          disabled={photoBusy}
+                          style={{background:hasP?c.accent+"22":c.card2,border:"1px solid "+(hasP?c.accent+"55":c.border),
+                            borderRadius:9,padding:"7px 14px",fontSize:12,fontWeight:700,cursor:"pointer",
+                            color:hasP?c.accent:c.sub,fontFamily:"inherit",minHeight:36,
+                            display:"flex",alignItems:"center",gap:6}}>
+                          <ICamera/> {hasP?"View":(photoBusy?"…":"Add")}
                         </button>
                       );
                     })()}
@@ -854,45 +907,45 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
               <div style={{flex:1,minWidth:0}}>
                 <div style={{display:"flex",alignItems:"center",gap:8}}>
                   <div style={{fontWeight:900,fontSize:17,color:c.text,letterSpacing:"-0.02em",lineHeight:1.2,wordBreak:"break-word",flex:1,minWidth:0}}>{ex.name}</div>
-                  {/* Demo button — shows the right icon for whatever's attached.
-                      Tap: open player (if anything set) or editor (if nothing).
-                      Long-press / right-click: open editor directly.
-                      When both video + photo exist, the player itself toggles. */}
+                  {/* Two independent buttons: VIDEO and PHOTO.
+                      Video tap: opens YouTube directly if URL is set (universal
+                      link → YouTube app), or opens URL editor if not.
+                      Long-press on video: edit URL.
+                      Photo tap: opens fullscreen viewer if set, or file picker if not.
+                      Long-press on photo: opens viewer (which has replace/remove). */}
                   {(()=>{
                     const hasV=!!exerciseDemos[ex.name];
                     const hasP=!!exercisePhotos[ex.name];
-                    const active=hasV||hasP;
-                    // Pick the icon: both → camera (photo wins by default), video-only → play,
-                    // photo-only → camera, neither → video (add-affordance).
-                    const Icon = hasP ? ICamera : (hasV ? IPlay : IVideo);
-                    const label = !active ? "Add demo" : hasV && hasP ? "View photo / video" : hasV ? "Watch demo" : "View photo";
+                    const btnStyle=(active)=>({
+                      background:active?c.accent+"22":c.card2,
+                      border:"1px solid "+(active?c.accent+"55":c.border),
+                      borderRadius:11,
+                      width:44,height:44,
+                      display:"flex",alignItems:"center",justifyContent:"center",
+                      color:active?c.accent:c.sub,
+                      cursor:"pointer",fontFamily:"inherit",flexShrink:0,
+                      padding:0,
+                    });
                     return (
-                      <button
-                        onClick={()=>{haptic("light");openDemo(ex.name);}}
-                        onContextMenu={(e)=>{e.preventDefault();setDemoEditFor(ex.name);}}
-                        aria-label={label}
-                        style={{
-                          position:"relative",
-                          background:active?c.accent+"22":c.card2,
-                          border:"1px solid "+(active?c.accent+"55":c.border),
-                          borderRadius:11,
-                          width:44,height:44,
-                          display:"flex",alignItems:"center",justifyContent:"center",
-                          color:active?c.accent:c.sub,
-                          cursor:"pointer",fontFamily:"inherit",flexShrink:0,
-                          padding:0,
-                        }}
-                      >
-                        <Icon/>
-                        {/* Dual-attachment indicator: tiny dot when both are set */}
-                        {hasV && hasP && (
-                          <span style={{
-                            position:"absolute",top:4,right:4,
-                            width:6,height:6,borderRadius:99,
-                            background:c.am||"#f6a835",
-                          }}/>
-                        )}
-                      </button>
+                      <>
+                        <button
+                          onClick={()=>{haptic("light");openYouTube(ex.name);}}
+                          onContextMenu={(e)=>{e.preventDefault();setDemoEditFor(ex.name);}}
+                          aria-label={hasV?"Open video in YouTube":"Add YouTube URL"}
+                          style={btnStyle(hasV)}
+                        >
+                          {hasV?<IPlay/>:<IVideo/>}
+                        </button>
+                        <button
+                          onClick={()=>{haptic("light");onPhotoTap(ex.name);}}
+                          onContextMenu={(e)=>{e.preventDefault();if(exercisePhotos[ex.name])setPhotoViewFor(ex.name);else triggerPhotoUpload(ex.name);}}
+                          aria-label={hasP?"View equipment photo":"Add equipment photo"}
+                          disabled={photoBusy}
+                          style={btnStyle(hasP)}
+                        >
+                          <ICamera/>
+                        </button>
+                      </>
                     );
                   })()}
                 </div>
@@ -1177,28 +1230,37 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
       {/* ── Add Exercise Picker ── */}
       {picker&&<ExercisePicker c={c} customExercises={customExercises} customExTypes={customExTypes} onAddCustomEx={onAddCustomEx} onDeleteCustomEx={onDeleteCustomEx} onRenameCustomEx={onRenameCustomEx} onAddEx={addEx} onClose={closePicker}/>}
 
-      {/* ── Demo player & editor modals ── */}
-      {demoPlayFor&&(exerciseDemos[demoPlayFor]||exercisePhotos[demoPlayFor])&&(
-        <DemoPlayer
-          demo={exerciseDemos[demoPlayFor]||null}
-          photo={exercisePhotos[demoPlayFor]||null}
-          exerciseName={demoPlayFor}
-          c={c}
-          onClose={()=>setDemoPlayFor(null)}
-          onEdit={()=>{const n=demoPlayFor;setDemoPlayFor(null);setTimeout(()=>setDemoEditFor(n),60);}}
-        />
-      )}
+      {/* ── Hidden file input shared by all photo upload buttons ── */}
+      <input
+        ref={photoFileInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={onPhotoFileChange}
+        style={{display:'none'}}
+      />
+
+      {/* ── Video URL editor (video-only now; photos handled separately) ── */}
       {demoEditFor&&(
         <DemoEditor
           exerciseName={demoEditFor}
           currentDemo={exerciseDemos[demoEditFor]||null}
-          currentPhoto={exercisePhotos[demoEditFor]||null}
           c={c}
           onSave={(d)=>onSetExDemo&&onSetExDemo(demoEditFor,d)}
           onClear={()=>onDelExDemo&&onDelExDemo(demoEditFor)}
-          onSavePhoto={(p)=>onSetExPhoto&&onSetExPhoto(demoEditFor,p)}
-          onClearPhoto={()=>onDelExPhoto&&onDelExPhoto(demoEditFor)}
           onClose={()=>setDemoEditFor(null)}
+        />
+      )}
+
+      {/* ── Photo viewer with Replace / Remove ── */}
+      {photoViewFor&&exercisePhotos[photoViewFor]&&(
+        <PhotoView
+          photo={exercisePhotos[photoViewFor]}
+          exerciseName={photoViewFor}
+          c={c}
+          onClose={()=>setPhotoViewFor(null)}
+          onReplace={()=>{const n=photoViewFor;setPhotoViewFor(null);setTimeout(()=>triggerPhotoUpload(n),60);}}
+          onRemove={()=>{const n=photoViewFor;setPhotoViewFor(null);if(onDelExPhoto)onDelExPhoto(n);}}
         />
       )}
     </div>
