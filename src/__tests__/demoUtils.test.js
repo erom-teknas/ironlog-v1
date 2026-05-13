@@ -139,9 +139,10 @@ describe('buildEmbedUrl', () => {
     expect(buildEmbedUrl({ videoId: '' })).toBe('');
   });
 
-  it('builds a basic autoplay-muted embed', () => {
+  it('builds a basic autoplay-muted embed on the nocookie domain', () => {
     const url = buildEmbedUrl({ videoId: 'dQw4w9WgXcQ' });
-    expect(url).toContain('youtube.com/embed/dQw4w9WgXcQ');
+    // nocookie domain is required for reliable embedding inside iOS PWA WKWebView
+    expect(url).toContain('youtube-nocookie.com/embed/dQw4w9WgXcQ');
     expect(url).toContain('autoplay=1');
     expect(url).toContain('mute=1');
     expect(url).toContain('playsinline=1');

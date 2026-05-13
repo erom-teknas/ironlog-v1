@@ -134,7 +134,12 @@ export function buildEmbedUrl({ videoId, startSec, endSec, autoplay = true }) {
   params.set('loop', '1');
   params.set('playlist', videoId);
 
-  return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
+  // youtube-nocookie.com is YouTube's "enhanced privacy mode" embed domain.
+  // It doesn't set third-party cookies, which makes it work in environments
+  // where iframe embedding from youtube.com is blocked or unreliable —
+  // notably iOS PWA WKWebView, which silently renders youtube.com iframes
+  // blank in some contexts. Same player, same content, more permissive host.
+  return `https://www.youtube-nocookie.com/embed/${videoId}?${params.toString()}`;
 }
 
 /**
