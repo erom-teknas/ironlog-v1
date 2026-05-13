@@ -142,6 +142,45 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
     if(exercisePhotos[name])setPhotoViewFor(name);
     else triggerPhotoUpload(name);
   },[exercisePhotos,triggerPhotoUpload]);
+
+  // ─── Manual long-press detection ───────────────────────────────────────────
+  // iOS Safari/PWA hijacks long-press on <a> elements to show its native
+  // "Open / Copy / Share" menu, ignoring onContextMenu. We disable that
+  // menu with -webkit-touch-callout:none on the anchor itself, and detect
+  // long-press here from touch events. After a long-press fires, we set
+  // a "swallow next click" flag so the anchor doesn't also navigate.
+  const longPressTimerRef=useRef(null);
+  const longPressFiredRef=useRef(false);
+  const makeLongPressHandlers=useCallback((onLongPress)=>{
+    const start=()=>{
+      longPressFiredRef.current=false;
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current=setTimeout(()=>{
+        longPressFiredRef.current=true;
+        haptic("medium");
+        onLongPress();
+      },500);
+    };
+    const cancel=()=>{clearTimeout(longPressTimerRef.current);};
+    return {
+      onTouchStart:start,
+      onTouchEnd:cancel,
+      onTouchMove:cancel,
+      onTouchCancel:cancel,
+      onMouseDown:start,    // desktop fallback
+      onMouseUp:cancel,
+      onMouseLeave:cancel,
+      // The anchor's click fires after touchend even if long-press already
+      // ran. Swallow it so we don't also navigate to YouTube.
+      onClickCapture:(e)=>{
+        if(longPressFiredRef.current){
+          e.preventDefault();
+          e.stopPropagation();
+          longPressFiredRef.current=false;
+        }
+      },
+    };
+  },[]);
   const seeded=useRef(false);
   // Refs so tog() can read current timer values without being recreated every tick
   const timerSecsRef=useRef(timerSecs);
@@ -927,29 +966,38 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
                       cursor:"pointer",fontFamily:"inherit",flexShrink:0,
                       padding:0,
                       textDecoration:"none",
+                      // Disable iOS native long-press menu so our touch-event
+                      // long-press detection can fire. Also blocks the link
+                      // preview that iOS would otherwise show for <a>.
+                      WebkitTouchCallout:"none",
+                      WebkitUserSelect:"none",
+                      userSelect:"none",
+                    });
+                    const videoLP=makeLongPressHandlers(()=>setDemoEditFor(ex.name));
+                    const photoLP=makeLongPressHandlers(()=>{
+                      if(exercisePhotos[ex.name])setPhotoViewFor(ex.name);
+                      else triggerPhotoUpload(ex.name);
                     });
                     return (
                       <>
                         {hasV ? (
                           // <a> with target="_blank" lets iOS trigger the YouTube
                           // universal link → opens the YT app, IronLog stays in
-                          // the background. window.open does NOT do this in
-                          // standalone PWAs.
+                          // the background.
                           <a
                             href={watchUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={()=>haptic("light")}
-                            onContextMenu={(e)=>{e.preventDefault();setDemoEditFor(ex.name);}}
-                            aria-label="Open video in YouTube"
+                            aria-label="Open video in YouTube — long-press to edit"
                             style={btnStyle(true)}
+                            {...videoLP}
                           >
                             <IPlay/>
                           </a>
                         ) : (
                           <button
                             onClick={()=>{haptic("light");setDemoEditFor(ex.name);}}
-                            onContextMenu={(e)=>{e.preventDefault();setDemoEditFor(ex.name);}}
                             aria-label="Add YouTube URL"
                             style={btnStyle(false)}
                           >
@@ -958,10 +1006,10 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
                         )}
                         <button
                           onClick={()=>{haptic("light");onPhotoTap(ex.name);}}
-                          onContextMenu={(e)=>{e.preventDefault();if(exercisePhotos[ex.name])setPhotoViewFor(ex.name);else triggerPhotoUpload(ex.name);}}
-                          aria-label={hasP?"View equipment photo":"Add equipment photo"}
+                          aria-label={hasP?"View equipment photo — long-press to edit":"Add equipment photo"}
                           disabled={photoBusy}
                           style={btnStyle(hasP)}
+                          {...(hasP?photoLP:{})}
                         >
                           <ICamera/>
                         </button>
