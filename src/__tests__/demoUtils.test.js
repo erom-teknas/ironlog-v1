@@ -163,22 +163,31 @@ describe('buildEmbedUrl', () => {
     expect(url).toContain('end=110');
   });
 
-  it('adds loop=1 AND playlist=<videoId> when segment is set (YouTube quirk)', () => {
-    // Without playlist=<id>, loop=1 silently does nothing for single videos.
-    const url = buildEmbedUrl({ videoId: 'dQw4w9WgXcQ', startSec: 83, endSec: 110 });
+  it('always sets loop=1 AND playlist=<videoId> (YouTube single-video loop quirk)', () => {
+    // Loop is the default for every demo — without playlist=<id>, loop=1
+    // silently does nothing for single videos.
+    const url = buildEmbedUrl({ videoId: 'dQw4w9WgXcQ' });
     expect(url).toContain('loop=1');
     expect(url).toContain('playlist=dQw4w9WgXcQ');
   });
 
-  it('does NOT loop when only startSec is set (would loop infinitely)', () => {
-    const url = buildEmbedUrl({ videoId: 'dQw4w9WgXcQ', startSec: 83 });
-    expect(url).not.toContain('loop=1');
+  it('loops with a segment when both start and end are set', () => {
+    const url = buildEmbedUrl({ videoId: 'dQw4w9WgXcQ', startSec: 83, endSec: 110 });
+    expect(url).toContain('start=83');
+    expect(url).toContain('end=110');
+    expect(url).toContain('loop=1');
   });
 
-  it('ignores endSec when it is <= startSec', () => {
+  it('loops the whole video when only startSec is set', () => {
+    const url = buildEmbedUrl({ videoId: 'dQw4w9WgXcQ', startSec: 83 });
+    expect(url).toContain('start=83');
+    expect(url).toContain('loop=1');
+  });
+
+  it('ignores endSec when it is <= startSec but still loops', () => {
     const url = buildEmbedUrl({ videoId: 'dQw4w9WgXcQ', startSec: 110, endSec: 83 });
     expect(url).not.toContain('end=83');
-    expect(url).not.toContain('loop=1');
+    expect(url).toContain('loop=1');
   });
 });
 

@@ -188,27 +188,17 @@ export default function DemoPlayer({ demo, photo, exerciseName, c, onClose, onEd
         )}
       </div>
 
-      {/* Footer — video-only context. Photo view doesn't need the
-          "open in YouTube" fallback or the segment-loop hint. */}
+      {/* Footer — video-only. Just the "Open in YouTube" fallback for cases
+          where embedding is disabled by the creator. */}
       {view === 'video' && hasVideo && (
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
             padding: '10px 16px 14px',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            gap: 12, color: 'rgba(255,255,255,0.7)', fontSize: 12,
+            display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+            color: 'rgba(255,255,255,0.7)', fontSize: 12,
           }}
         >
-          <div style={{ minWidth: 0, overflow: 'hidden' }}>
-            {demo.startSec > 0 || demo.endSec > 0 ? (
-              <span>
-                Loop {demo.startSec || 0}s
-                {demo.endSec > 0 ? ` → ${demo.endSec}s` : ''}
-              </span>
-            ) : (
-              <span>Playing full video</span>
-            )}
-          </div>
           <a
             href={watchUrl}
             target="_blank"

@@ -12,9 +12,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import {
-  parseYouTubeUrl, buildEmbedUrl, parseTimestamp, formatTimestamp,
-} from '../demoUtils';
+import { parseYouTubeUrl, buildEmbedUrl } from '../demoUtils';
 import { compressPhotoToDataURL, estimatePhotoSize, formatBytes } from '../photoUtils';
 import { IX, ITrash, ICamera } from '../icons';
 
@@ -23,8 +21,6 @@ export default function DemoEditor({
   onSave, onClear, onSavePhoto, onClearPhoto, onClose,
 }) {
   const [url, setUrl] = useState(currentDemo ? `https://www.youtube.com/watch?v=${currentDemo.videoId}` : '');
-  const [startRaw, setStartRaw] = useState(currentDemo && currentDemo.startSec ? formatTimestamp(currentDemo.startSec) : '');
-  const [endRaw, setEndRaw] = useState(currentDemo && currentDemo.endSec ? formatTimestamp(currentDemo.endSec) : '');
   const [error, setError] = useState('');
   // Photo state — separate from video so they're managed independently.
   // localPhoto holds either the existing data URL (on open) or a freshly
@@ -38,22 +34,8 @@ export default function DemoEditor({
   // Parse URL live so the preview re-renders as the user pastes.
   const parsed = useMemo(() => parseYouTubeUrl(url), [url]);
 
-  // Auto-fill start from URL's ?t= param the first time we see a videoId
-  // change (so pasting a fresh link with #t=83 just works).
-  useEffect(() => {
-    if (parsed && parsed.suggestedStartSec && !startRaw) {
-      setStartRaw(formatTimestamp(parsed.suggestedStartSec));
-    }
-    // intentionally only react to parsed.videoId — we don't want to overwrite
-    // the user's manually-typed startRaw if they edit the URL afterwards.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parsed && parsed.videoId]);
-
-  const startSec = parseTimestamp(startRaw) || 0;
-  const endSec = parseTimestamp(endRaw) || 0;
-
   const previewSrc = parsed
-    ? buildEmbedUrl({ videoId: parsed.videoId, startSec, endSec, autoplay: false })
+    ? buildEmbedUrl({ videoId: parsed.videoId, autoplay: false })
     : '';
 
   // Commit any photo change first — separate concern from video save, but we
@@ -72,26 +54,21 @@ export default function DemoEditor({
 
   const handleSave = () => {
     // Pure-photo edits should be allowed without requiring a video URL.
-    // If the user pasted nothing into URL but did edit a photo, save only the photo.
     if (!url.trim()) {
-      // Video field is empty → either clear existing video or leave it alone.
-      // Treat empty-URL save as: only the photo changes get applied.
       commitPhoto();
       onClose();
       return;
     }
     if (!parsed) {
-      setError('That doesn’t look like a YouTube link. Try a youtube.com/watch or youtu.be URL.');
-      return;
-    }
-    if (endSec > 0 && endSec <= startSec) {
-      setError('End time must be after start time.');
+      setError('That doesn’t look like a YouTube link. Try a youtube.com/watch, youtu.be, or youtube.com/shorts URL.');
       return;
     }
     onSave({
       videoId: parsed.videoId,
-      startSec,
-      endSec,
+      // Keep the schema fields so older saved demos with start/end still
+      // play correctly, but new ones don't set them — full-video loop.
+      startSec: 0,
+      endSec: 0,
       addedAt: currentDemo ? currentDemo.addedAt : new Date().toISOString(),
     });
     commitPhoto();
@@ -220,7 +197,7 @@ export default function DemoEditor({
         {parsed && (
           <div style={{ marginTop: 14, borderRadius: 14, overflow: 'hidden', background: '#000', aspectRatio: '16 / 9' }}>
             <iframe
-              key={`${parsed.videoId}-${startSec}-${endSec}`}
+              key={parsed.videoId}
               src={previewSrc}
               title="Preview"
               allow="encrypted-media; picture-in-picture"
@@ -230,43 +207,14 @@ export default function DemoEditor({
           </div>
         )}
 
-        {/* Segment fields */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 16 }}>
-          <div>
-            <label style={labelStyle}>Loop start</label>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={startRaw}
-              onChange={(e) => { setStartRaw(e.target.value); setError(''); }}
-              placeholder="1:23"
-              style={fieldStyle}
-            />
-            <div style={{ fontSize: 11, color: c.sub, marginTop: 4 }}>
-              {startSec > 0 ? `= ${formatTimestamp(startSec)}` : 'Optional'}
-            </div>
+        {/* No loop-start/end inputs anymore — the whole video loops by default,
+            which is what you want for Shorts (the primary use case). Saved
+            demos that already have start/end will keep honoring them. */}
+        {parsed && (
+          <div style={{ fontSize: 11, color: c.sub, marginTop: 10, lineHeight: 1.4 }}>
+            Video will autoplay muted and loop.
           </div>
-          <div>
-            <label style={labelStyle}>Loop end</label>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={endRaw}
-              onChange={(e) => { setEndRaw(e.target.value); setError(''); }}
-              placeholder="1:35"
-              style={fieldStyle}
-            />
-            <div style={{ fontSize: 11, color: c.sub, marginTop: 4 }}>
-              {endSec > 0 ? `= ${formatTimestamp(endSec)}` : 'Optional'}
-            </div>
-          </div>
-        </div>
-        <div style={{ fontSize: 11, color: c.sub, marginTop: 8, lineHeight: 1.4 }}>
-          Set both to loop just the rep. Leave blank to play the full video.
-          Accepts <code style={{ background: c.card2, padding: '0 4px', borderRadius: 4 }}>1:23</code>,&nbsp;
-          <code style={{ background: c.card2, padding: '0 4px', borderRadius: 4 }}>83</code>, or&nbsp;
-          <code style={{ background: c.card2, padding: '0 4px', borderRadius: 4 }}>1m23s</code>.
-        </div>
+        )}
 
         {error && (
           <div style={{ marginTop: 12, padding: '10px 12px', background: c.rs, color: c.r, borderRadius: 10, fontSize: 13, fontWeight: 600 }}>

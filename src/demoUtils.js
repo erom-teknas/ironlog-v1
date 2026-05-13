@@ -106,10 +106,12 @@ export function parseYouTubeUrl(url) {
  *
  *  - mute=1 and playsinline=1 are required for autoplay to work in modern
  *    mobile browsers without a user gesture.
- *  - When startSec and endSec are both set, we ALSO set playlist=<videoId>.
- *    That's a documented YouTube quirk: loop=1 only works for a single video
- *    if you also set playlist to that video's ID. Without it, the player
- *    just stops at endSec.
+ *  - loop=1 + playlist=<videoId> is YouTube's documented quirk: loop=1 only
+ *    works for a single video if you ALSO set playlist to that video's ID.
+ *    We always loop now — the primary use case is YouTube Shorts, which
+ *    are short enough that endless loop is the desired behavior.
+ *  - startSec / endSec are still honored if present in older saved demos,
+ *    so previously-trimmed segments keep working after this change.
  *  - modestbranding and rel=0 reduce the "watch more" suggestion overlay.
  */
 export function buildEmbedUrl({ videoId, startSec, endSec, autoplay = true }) {
@@ -126,13 +128,11 @@ export function buildEmbedUrl({ videoId, startSec, endSec, autoplay = true }) {
   if (start > 0) params.set('start', String(start));
   if (end > 0 && end > start) params.set('end', String(end));
 
-  // Loop only makes sense (and only works on YouTube) when we have a bounded
-  // segment. Looping the entire video would mean an unbounded loop of a
-  // potentially 10-minute clip — not what users want.
-  if (start >= 0 && end > 0 && end > start) {
-    params.set('loop', '1');
-    params.set('playlist', videoId);
-  }
+  // Always loop. The playlist=<videoId> param is required for loop=1 to
+  // actually work on a single video — without it, the player stops at
+  // the end (or at endSec) and just shows the "Watch again" overlay.
+  params.set('loop', '1');
+  params.set('playlist', videoId);
 
   return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
 }
