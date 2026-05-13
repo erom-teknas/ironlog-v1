@@ -14,7 +14,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { buildEmbedUrl } from '../demoUtils';
+import { buildEmbedUrl, getYouTubeThumbnail } from '../demoUtils';
 import { IX, IPlay, ICamera } from '../icons';
 
 export default function DemoPlayer({ demo, photo, exerciseName, c, onClose, onEdit }) {
@@ -25,6 +25,13 @@ export default function DemoPlayer({ demo, photo, exerciseName, c, onClose, onEd
   const hasVideo = !!(demo && demo.videoId);
   const hasPhoto = !!(photo && photo.dataUrl);
   const [view, setView] = useState(hasPhoto ? 'photo' : 'video');
+  // Facade pattern: we render a thumbnail until the user taps play, THEN
+  // mount the iframe. Reason: iOS PWA WKWebView silently refuses to autoplay
+  // cross-origin iframes even when they're muted + playsinline. Creating the
+  // iframe inside the tap handler gives it fresh user-gesture context, which
+  // WKWebView accepts. Side benefit: way faster modal open (no YouTube
+  // player loaded until needed).
+  const [playing, setPlaying] = useState(false);
 
   // Defensive: if props change (caller swaps which media exists), force a
   // valid view. Otherwise we'd render <iframe> with no demo etc.
@@ -33,6 +40,9 @@ export default function DemoPlayer({ demo, photo, exerciseName, c, onClose, onEd
     if (view === 'photo' && !hasPhoto) setView('video');
   }, [view, hasVideo, hasPhoto]);
 
+  // When the user toggles to a different view (or closes), stop the iframe.
+  useEffect(() => { if (view !== 'video') setPlaying(false); }, [view]);
+
   const src = hasVideo ? buildEmbedUrl({
     videoId: demo.videoId,
     startSec: demo.startSec,
@@ -40,6 +50,7 @@ export default function DemoPlayer({ demo, photo, exerciseName, c, onClose, onEd
     autoplay: true,
   }) : '';
   const watchUrl = hasVideo ? `https://www.youtube.com/watch?v=${demo.videoId}${demo.startSec ? `&t=${demo.startSec}s` : ''}` : '';
+  const thumbUrl = hasVideo ? getYouTubeThumbnail(demo.videoId, 'hqdefault') : '';
 
   // Lock body scroll while the modal is open — without this iOS lets
   // background scrolls leak through the iframe area.
@@ -163,16 +174,77 @@ export default function DemoPlayer({ demo, photo, exerciseName, c, onClose, onEd
         }}
       >
         {view === 'video' && hasVideo && (
-          <div style={{ width: '100%', maxWidth: 720, aspectRatio: '16 / 9', background: '#000', borderRadius: 14, overflow: 'hidden', boxShadow: '0 12px 48px rgba(0,0,0,0.6)' }}>
-            <iframe
-              ref={iframeRef}
-              src={src}
-              title={`${exerciseName} demo`}
-              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-              allowFullScreen
-              referrerPolicy="strict-origin-when-cross-origin"
-              style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-            />
+          <div style={{
+            position: 'relative',
+            width: '100%', maxWidth: 720, aspectRatio: '16 / 9',
+            background: '#000', borderRadius: 14, overflow: 'hidden',
+            boxShadow: '0 12px 48px rgba(0,0,0,0.6)',
+          }}>
+            {playing ? (
+              <iframe
+                ref={iframeRef}
+                src={src}
+                title={`${exerciseName} demo`}
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                allowFullScreen
+                referrerPolicy="strict-origin-when-cross-origin"
+                style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+              />
+            ) : (
+              // Thumbnail facade — tapping this creates the iframe IN the
+              // gesture handler, which is what WKWebView needs to allow
+              // autoplay on the cross-origin YouTube embed.
+              <button
+                onClick={() => setPlaying(true)}
+                aria-label="Play demo"
+                style={{
+                  position: 'absolute', inset: 0,
+                  width: '100%', height: '100%',
+                  background: '#000', border: 'none', padding: 0,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                <img
+                  src={thumbUrl}
+                  alt=""
+                  style={{
+                    width: '100%', height: '100%',
+                    objectFit: 'cover', display: 'block',
+                    opacity: 0.75,
+                  }}
+                  // YouTube thumbnails sometimes 404 on hqdefault; if so we
+                  // fall back to mqdefault which always exists. No state
+                  // needed — just rewrite the src attribute once.
+                  onError={(e) => {
+                    if (!e.currentTarget.dataset.fallback) {
+                      e.currentTarget.dataset.fallback = '1';
+                      e.currentTarget.src = `https://i.ytimg.com/vi/${demo.videoId}/mqdefault.jpg`;
+                    }
+                  }}
+                />
+                <div style={{
+                  position: 'absolute', inset: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexDirection: 'column', gap: 8,
+                  pointerEvents: 'none',
+                }}>
+                  <div style={{
+                    width: 72, height: 72, borderRadius: 99,
+                    background: 'rgba(255,0,0,0.92)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+                    color: '#fff',
+                  }}>
+                    <div style={{ transform: 'scale(2.5) translateX(2px)' }}>
+                      <IPlay />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: 700, letterSpacing: '0.02em' }}>
+                    Tap to play
+                  </div>
+                </div>
+              </button>
+            )}
           </div>
         )}
         {view === 'photo' && hasPhoto && (
