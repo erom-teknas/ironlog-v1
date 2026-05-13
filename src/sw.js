@@ -30,8 +30,15 @@ self.addEventListener('activate', function(e) {
 });
 
 self.addEventListener('fetch', function(e) {
-  // Only intercept same-origin and basic requests
+  // Only intercept same-origin GET requests. Cross-origin requests (YouTube
+  // embed iframes, Supabase, anything else) must pass through to the network
+  // untouched — otherwise iOS PWA WebView can't reconcile our opaque-response
+  // handling and the iframe renders blank. The comment used to claim we did
+  // this; now we actually do.
   if (e.request.method !== 'GET') return;
+  var reqUrl;
+  try { reqUrl = new URL(e.request.url); } catch (_e) { return; }
+  if (reqUrl.origin !== self.location.origin) return;
   e.respondWith(
     caches.match(e.request).then(function(cached) {
       if (cached) return cached;
