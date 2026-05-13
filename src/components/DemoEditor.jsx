@@ -153,7 +153,8 @@ export default function DemoEditor({
         position: 'fixed', inset: 0,
         background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
         WebkitBackdropFilter: 'blur(8px)',
-        zIndex: 9000,
+        // Must sit above the focused-exercise overlay (zIndex 9200).
+        zIndex: 9300,
         display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
       }}
     >

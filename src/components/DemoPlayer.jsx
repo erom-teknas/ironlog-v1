@@ -69,7 +69,9 @@ export default function DemoPlayer({ demo, photo, exerciseName, c, onClose, onEd
       style={{
         position: 'fixed', inset: 0,
         background: 'rgba(0,0,0,0.92)',
-        zIndex: 9000,
+        // Must sit above the focused-exercise overlay (zIndex 9200) but
+        // below the plate-picker (9400) and the PR-banner toast (9450).
+        zIndex: 9300,
         display: 'flex', flexDirection: 'column',
         paddingTop: 'env(safe-area-inset-top, 0px)',
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
