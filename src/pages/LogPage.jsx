@@ -3,7 +3,9 @@ import { createPortal } from 'react-dom';
 import { BAR_TYPES, PLATES_LB, PLATES_KG, PCOL_LB, PCOL } from '../constants';
 import { uid, today, fmtD, calcVol, bestRM, calc1RM, kgToLb, fmtW, storeW, calcPlates, fmtVol, haptic, isCardioEx, getExInputType, isTimedEx } from '../utils';
 import { useConfirm } from '../hooks.jsx';
-import { ITrash, ICheck, IX, IBell, IStar, IActivity, IPencil, IBarbell } from '../icons';
+import { ITrash, ICheck, IX, IBell, IStar, IActivity, IPencil, IBarbell, IPlay, IVideo, ICamera } from '../icons';
+import DemoPlayer from '../components/DemoPlayer';
+import DemoEditor from '../components/DemoEditor';
 import { Pill } from '../components/Primitives';
 import RestTimerCircle from '../components/RestTimerCircle';
 import PlateCircle from '../components/PlateCircle';
@@ -71,7 +73,9 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
   customExercises={},customExTypes={},onAddCustomEx,onDeleteCustomEx,onRenameCustomEx,hist=[],gymPlates=[],bwLog=[],
   restPresets={},onSaveRestPreset,
   collapsedExs,setCollapsedExs,
-  deloadNotice=false,onDismissDeload}){
+  deloadNotice=false,onDismissDeload,
+  exerciseDemos={},onSetExDemo,onDelExDemo,
+  exercisePhotos={},onSetExPhoto,onDelExPhoto}){
   // ALL hooks at top — no hooks after conditional returns (React rule)
   const exs=draftExs, setExs=setDraftExs;
   const rating=draftRating, setRating=setDraftRating;
@@ -79,6 +83,17 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
   const {confirm:dlgConfirm,confirmEl}=useConfirm(c);
   const [platePickerFor,setPlatePickerFor]=useState(null);
   const [plateConfirmed,setPlateConfirmed]=useState({});
+  // Demo modal state — stores the exercise NAME (since exerciseDemos is name-keyed).
+  // demoPlayFor=name → DemoPlayer modal. demoEditFor=name → DemoEditor modal.
+  const [demoPlayFor,setDemoPlayFor]=useState(null);
+  const [demoEditFor,setDemoEditFor]=useState(null);
+  // openDemo: if EITHER a video or a photo is set, open the player (which
+  // handles both). Otherwise open the editor so the user can add something.
+  const openDemo=useCallback((name)=>{
+    if(!name)return;
+    if(exerciseDemos[name]||exercisePhotos[name])setDemoPlayFor(name);
+    else setDemoEditFor(name);
+  },[exerciseDemos,exercisePhotos]);
   const seeded=useRef(false);
   // Refs so tog() can read current timer values without being recreated every tick
   const timerSecsRef=useRef(timerSecs);
@@ -684,6 +699,34 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
                     </button>
                   </div>
 
+                  <div style={rowStyle}>
+                    <span style={labelStyle}>Demo / equipment photo</span>
+                    {(()=>{
+                      const hasV=!!exerciseDemos[ex.name];
+                      const hasP=!!exercisePhotos[ex.name];
+                      const active=hasV||hasP;
+                      // Compact label: ✓ Video · ✓ Photo / + Add
+                      return (
+                        <button onClick={()=>{setExOptionsFor(null);setTimeout(()=>setDemoEditFor(ex.name),80);}}
+                          style={{background:active?c.accent+"22":c.card2,border:"1px solid "+(active?c.accent+"55":c.border),
+                            borderRadius:9,padding:"7px 14px",fontSize:12,fontWeight:700,cursor:"pointer",
+                            color:active?c.accent:c.sub,fontFamily:"inherit",minHeight:36,
+                            display:"flex",alignItems:"center",gap:6}}>
+                          {active ? (
+                            <>
+                              {hasV && <IPlay/>}
+                              {hasV && hasP && <span style={{opacity:0.5}}>·</span>}
+                              {hasP && <ICamera/>}
+                              <span style={{marginLeft:4}}>Edit</span>
+                            </>
+                          ) : (
+                            <><IVideo/> Add</>
+                          )}
+                        </button>
+                      );
+                    })()}
+                  </div>
+
                   {onSaveRestPreset&&<div style={rowStyle}>
                     <span style={labelStyle}>Rest timer</span>
                     <div style={{display:"flex",alignItems:"center",gap:4,background:c.card2,border:"1px solid "+c.border,borderRadius:10,padding:"4px 8px"}}>
@@ -809,7 +852,50 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
             <div style={{background:c.card+"ee",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",borderBottom:"1px solid "+c.border,position:"sticky",top:0,zIndex:2,display:"flex",alignItems:"center",gap:10,flexShrink:0,paddingTop:"calc(env(safe-area-inset-top,0px) + 14px)",paddingLeft:16,paddingRight:16,paddingBottom:14}}>
               <button onClick={()=>setFocusedExId(null)} style={{background:c.card2,border:"none",borderRadius:10,padding:"10px 14px",fontSize:14,fontWeight:700,cursor:"pointer",color:c.text,fontFamily:"inherit",flexShrink:0,minHeight:44}}>← Back</button>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontWeight:900,fontSize:17,color:c.text,letterSpacing:"-0.02em",lineHeight:1.2,wordBreak:"break-word"}}>{ex.name}</div>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{fontWeight:900,fontSize:17,color:c.text,letterSpacing:"-0.02em",lineHeight:1.2,wordBreak:"break-word",flex:1,minWidth:0}}>{ex.name}</div>
+                  {/* Demo button — shows the right icon for whatever's attached.
+                      Tap: open player (if anything set) or editor (if nothing).
+                      Long-press / right-click: open editor directly.
+                      When both video + photo exist, the player itself toggles. */}
+                  {(()=>{
+                    const hasV=!!exerciseDemos[ex.name];
+                    const hasP=!!exercisePhotos[ex.name];
+                    const active=hasV||hasP;
+                    // Pick the icon: both → camera (photo wins by default), video-only → play,
+                    // photo-only → camera, neither → video (add-affordance).
+                    const Icon = hasP ? ICamera : (hasV ? IPlay : IVideo);
+                    const label = !active ? "Add demo" : hasV && hasP ? "View photo / video" : hasV ? "Watch demo" : "View photo";
+                    return (
+                      <button
+                        onClick={()=>{haptic("light");openDemo(ex.name);}}
+                        onContextMenu={(e)=>{e.preventDefault();setDemoEditFor(ex.name);}}
+                        aria-label={label}
+                        style={{
+                          position:"relative",
+                          background:active?c.accent+"22":c.card2,
+                          border:"1px solid "+(active?c.accent+"55":c.border),
+                          borderRadius:11,
+                          width:44,height:44,
+                          display:"flex",alignItems:"center",justifyContent:"center",
+                          color:active?c.accent:c.sub,
+                          cursor:"pointer",fontFamily:"inherit",flexShrink:0,
+                          padding:0,
+                        }}
+                      >
+                        <Icon/>
+                        {/* Dual-attachment indicator: tiny dot when both are set */}
+                        {hasV && hasP && (
+                          <span style={{
+                            position:"absolute",top:4,right:4,
+                            width:6,height:6,borderRadius:99,
+                            background:c.am||"#f6a835",
+                          }}/>
+                        )}
+                      </button>
+                    );
+                  })()}
+                </div>
                 <div style={{display:"flex",alignItems:"center",gap:6,marginTop:2}}>
                   <Pill label={ex.muscle} col={c.at} bg={c.as}/>
                   {allTimeBestDisp>0&&!isCardioFocus&&!isTimedFocus&&<span style={{fontSize:10,color:"#f6a835",fontWeight:800,background:"#f6a83520",border:"1px solid #f6a83540",borderRadius:6,padding:"1px 6px"}}>🏆 {allTimeBestDisp}{unit}{allTimeBestReps?" × "+allTimeBestReps:""}</span>}
@@ -1090,6 +1176,31 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
 
       {/* ── Add Exercise Picker ── */}
       {picker&&<ExercisePicker c={c} customExercises={customExercises} customExTypes={customExTypes} onAddCustomEx={onAddCustomEx} onDeleteCustomEx={onDeleteCustomEx} onRenameCustomEx={onRenameCustomEx} onAddEx={addEx} onClose={closePicker}/>}
+
+      {/* ── Demo player & editor modals ── */}
+      {demoPlayFor&&(exerciseDemos[demoPlayFor]||exercisePhotos[demoPlayFor])&&(
+        <DemoPlayer
+          demo={exerciseDemos[demoPlayFor]||null}
+          photo={exercisePhotos[demoPlayFor]||null}
+          exerciseName={demoPlayFor}
+          c={c}
+          onClose={()=>setDemoPlayFor(null)}
+          onEdit={()=>{const n=demoPlayFor;setDemoPlayFor(null);setTimeout(()=>setDemoEditFor(n),60);}}
+        />
+      )}
+      {demoEditFor&&(
+        <DemoEditor
+          exerciseName={demoEditFor}
+          currentDemo={exerciseDemos[demoEditFor]||null}
+          currentPhoto={exercisePhotos[demoEditFor]||null}
+          c={c}
+          onSave={(d)=>onSetExDemo&&onSetExDemo(demoEditFor,d)}
+          onClear={()=>onDelExDemo&&onDelExDemo(demoEditFor)}
+          onSavePhoto={(p)=>onSetExPhoto&&onSetExPhoto(demoEditFor,p)}
+          onClearPhoto={()=>onDelExPhoto&&onDelExPhoto(demoEditFor)}
+          onClose={()=>setDemoEditFor(null)}
+        />
+      )}
     </div>
   );
 }

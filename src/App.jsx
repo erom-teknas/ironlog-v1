@@ -5,6 +5,7 @@ import {createPortal} from 'react-dom';
 import { D, L, O, THEMES, MILESTONES, TIMER_STEPS, MG } from './constants';
 import { uid, today, fmtD, lbToKg, haptic, isCardioEx } from './utils';
 import { openDB, idbSet, idbGet, lsGet, lsSet } from './storage';
+import { isValidPhotoDataUrl } from './photoUtils';
 import { getCloudUser, onAuthChange, cloudBackup, cloudRestore, signOut as cloudSignOut, deleteCloudAccount } from './cloud';
 import { ISun, IMoon, ICheck, IHome, ILog, IHist, IChart, IPR, IGrid, ISettings } from './icons';
 import { useConfirm, useImportDialog } from './hooks.jsx';
@@ -129,6 +130,28 @@ function dataReducer(state,action){
     case 'SET_REST_PRESET':
       return{...state,restPresets:{...state.restPresets,[action.name]:action.secs}};
 
+    case 'SET_EX_DEMO':{
+      // action.demo = { videoId, startSec, endSec, addedAt }
+      // Keyed by exercise NAME so it works for both built-in and custom exercises.
+      const exerciseDemos={...(state.exerciseDemos||{}),[action.name]:action.demo};
+      return{...state,exerciseDemos};
+    }
+    case 'DEL_EX_DEMO':{
+      const exerciseDemos={...(state.exerciseDemos||{})};
+      delete exerciseDemos[action.name];
+      return{...state,exerciseDemos};
+    }
+    case 'SET_EX_PHOTO':{
+      // action.photo = { dataUrl, addedAt }
+      const exercisePhotos={...(state.exercisePhotos||{}),[action.name]:action.photo};
+      return{...state,exercisePhotos};
+    }
+    case 'DEL_EX_PHOTO':{
+      const exercisePhotos={...(state.exercisePhotos||{})};
+      delete exercisePhotos[action.name];
+      return{...state,exercisePhotos};
+    }
+
     default: return state;
   }
 }
@@ -189,8 +212,9 @@ function App(){
     hist:[],customExercises:{},customExTypes:{},
     gymPlates:DEFAULT_PLATES_KG,bwLog:[],measLog:[],customPlans:[],
     restPresets:lsGet("il_rest_presets",{}),
+    exerciseDemos:{},exercisePhotos:{},
   }));
-  const{hist,customExercises,customExTypes,gymPlates,bwLog,measLog,customPlans,restPresets}=data;
+  const{hist,customExercises,customExTypes,gymPlates,bwLog,measLog,customPlans,restPresets,exerciseDemos,exercisePhotos}=data;
   const [logInit,setLogInit]=useState(null);
   const [logName,setLogName]=useState("");
   const [deloadNotice,setDeloadNotice]=useState(false);
@@ -284,7 +308,9 @@ function App(){
       idbGet("il_meas",[]),
       idbGet("il_gym_plates",DEFAULT_PLATES_KG),
       idbGet("il_unit","kg"),
-    ]).then(([idbData,plans,bw,customEx,customExT,meas,plates,savedUnit])=>{
+      idbGet("il_ex_demos",{}),
+      idbGet("il_ex_photos",{}),
+    ]).then(([idbData,plans,bw,customEx,customExT,meas,plates,savedUnit,demos,photos])=>{
       // Migrate from localStorage → IndexedDB for hist (use whichever has more data)
       var merged=idbData.length>=lsData.length?idbData:lsData;
       dispatch({type:'INIT',payload:{
@@ -295,6 +321,8 @@ function App(){
         customExTypes:customExT||{},
         measLog:meas||[],
         gymPlates:plates&&plates.length?plates:DEFAULT_PLATES_KG,
+        exerciseDemos:demos||{},
+        exercisePhotos:photos||{},
       }});
       setUnit(savedUnit);
       setLoaded(true);
@@ -386,6 +414,16 @@ function App(){
   const renameCustomExercise=(muscle,oldName,newName)=>{var n=newName.trim();if(!n||n===oldName)return;dispatch({type:'RENAME_CUSTOM_EX',muscle,oldName,newName:n});};
   const logMeas=(entry)=>dispatch({type:'LOG_MEAS',date:today(),entry});
   const deleteMeas=(date)=>dispatch({type:'DELETE_MEAS',date});
+  // Per-exercise YouTube demo videos. Keyed by exercise name (works for
+  // both built-in and custom exercises without restructuring either list).
+  const setExDemo=(name,demo)=>{if(!name||!demo||!demo.videoId)return;dispatch({type:'SET_EX_DEMO',name,demo});};
+  const delExDemo=(name)=>{if(!name)return;dispatch({type:'DEL_EX_DEMO',name});};
+  // Equipment photos. Stored as compressed JPEG data URLs in IndexedDB.
+  // Deliberately NOT included in the Supabase cloud backup payload (see
+  // doCloudBackup) — even at ~250KB each, base64-encoded photos blow up
+  // the cloud row size and slow every silent-after-workout backup.
+  const setExPhoto=(name,photo)=>{if(!name||!photo||!photo.dataUrl)return;dispatch({type:'SET_EX_PHOTO',name,photo});};
+  const delExPhoto=(name)=>{if(!name)return;dispatch({type:'DEL_EX_PHOTO',name});};
   // ── Persist data slices to IndexedDB ──────────────────────────────────────
   useEffect(()=>{lsSet("il_rest_presets",restPresets);},[restPresets]);
   useEffect(()=>{if(loaded)idbSet("il_custom_routines",customPlans);},[customPlans,loaded]);
@@ -394,6 +432,8 @@ function App(){
   useEffect(()=>{if(loaded)idbSet("il_custom_ex_types",customExTypes);},[customExTypes,loaded]);
   useEffect(()=>{if(loaded)idbSet("il_meas",measLog);},[measLog,loaded]);
   useEffect(()=>{if(loaded)idbSet("il_gym_plates",gymPlates);},[gymPlates,loaded]);
+  useEffect(()=>{if(loaded)idbSet("il_ex_demos",exerciseDemos||{});},[exerciseDemos,loaded]);
+  useEffect(()=>{if(loaded)idbSet("il_ex_photos",exercisePhotos||{});},[exercisePhotos,loaded]);
 
   // ── Cloud auth subscription ───────────────────────────────────────────────
   useEffect(()=>{
@@ -403,13 +443,18 @@ function App(){
   },[]);
 
   // ── Cloud backup helpers ──────────────────────────────────────────────────
+  // NOTE: exercisePhotos is intentionally NOT included here. Photos are base64
+  // JPEGs ~150–400KB each; with 50+ photos, the silent-after-every-workout
+  // backup would push 10MB+ per sync over the user's data. Photos stay
+  // local-only, but are included in the JSON file export/import for users
+  // who want a complete portable backup.
   const doCloudBackup=useCallback(async()=>{
     if(!cloudUser)return{error:'Not signed in.'};
-    const payload={workouts:hist,customPlans,bwLog,measLog,customExercises,customExTypes,version:3};
+    const payload={workouts:hist,customPlans,bwLog,measLog,customExercises,customExTypes,exerciseDemos:exerciseDemos||{},version:4};
     const{updatedAt,error}=await cloudBackup(payload);
     if(updatedAt){lsSet("il_last_cloud_backup",updatedAt);setLastCloudBackup(updatedAt);}
     return{error};
-  },[cloudUser,hist,customPlans,bwLog,customExercises,customExTypes]);
+  },[cloudUser,hist,customPlans,bwLog,customExercises,customExTypes,exerciseDemos]);
 
   const useTmpl=t=>{
     const doStart=()=>{
@@ -457,7 +502,7 @@ function App(){
   // ── Backup system ──────────────────────────────────────────────────────────
   // saveBackupFile: triggers a real file download → goes to Files app / Downloads
   const saveBackupFile=(workouts,ts,silent)=>{
-    const data={version:3,date:ts,workouts,customPlans,bwLog,measLog,customExercises,customExTypes,createdAt:new Date().toISOString(),auto:!!silent};
+    const data={version:4,date:ts,workouts,customPlans,bwLog,measLog,customExercises,customExTypes,exerciseDemos:exerciseDemos||{},exercisePhotos:exercisePhotos||{},createdAt:new Date().toISOString(),auto:!!silent};
     const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
     const url=URL.createObjectURL(blob);
     const a=document.createElement("a");
@@ -478,7 +523,7 @@ function App(){
   const doShareBackup=async()=>{
     if(!hist.length)return;
     const ts=new Date().toISOString().slice(0,10);
-    const data={version:3,date:ts,workouts:hist,customPlans,bwLog,measLog,customExercises,customExTypes,createdAt:new Date().toISOString()};
+    const data={version:4,date:ts,workouts:hist,customPlans,bwLog,measLog,customExercises,customExTypes,exerciseDemos:exerciseDemos||{},exercisePhotos:exercisePhotos||{},createdAt:new Date().toISOString()};
     const filename="IronLog-"+ts+".json";
     const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
     const file=new File([blob],filename,{type:"application/json"});
@@ -529,6 +574,45 @@ function App(){
     const importedEx=raw.customExercises&&typeof raw.customExercises==="object"&&!Array.isArray(raw.customExercises)?raw.customExercises:null;
     const importedExTypes=raw.customExTypes&&typeof raw.customExTypes==="object"&&!Array.isArray(raw.customExTypes)?raw.customExTypes:null;
     const importedMeas=Array.isArray(raw.measLog)?raw.measLog.filter(x=>x&&x.date):null;
+    // exerciseDemos: { [exerciseName]: { videoId, startSec, endSec, addedAt } }
+    // Validate each entry strictly — videoId must be the 11-char YouTube ID format,
+    // start/end must be sane non-negative integers. Anything else is dropped silently.
+    const importedDemos=(()=>{
+      const d=raw.exerciseDemos;
+      if(!d||typeof d!=="object"||Array.isArray(d))return null;
+      const out={};
+      for(const key of Object.keys(d)){
+        const val=d[key];
+        if(!val||typeof val!=="object")continue;
+        if(typeof val.videoId!=="string"||!/^[A-Za-z0-9_-]{11}$/.test(val.videoId))continue;
+        out[safeStr(key,100)]={
+          videoId:val.videoId,
+          startSec:safeInt(val.startSec,0,86400),
+          endSec:safeInt(val.endSec,0,86400),
+          addedAt:safeStr(val.addedAt,40)||new Date().toISOString(),
+        };
+      }
+      return Object.keys(out).length?out:null;
+    })();
+    // Equipment photos. Validate the data URL header strictly (jpeg/png/webp
+    // base64 only) and cap individual entries at 2 MB to prevent a malicious
+    // or oversized file from being slipped in via a hand-edited backup.
+    const importedPhotos=(()=>{
+      const p=raw.exercisePhotos;
+      if(!p||typeof p!=="object"||Array.isArray(p))return null;
+      const out={};
+      for(const key of Object.keys(p)){
+        const val=p[key];
+        if(!val||typeof val!=="object")continue;
+        if(!isValidPhotoDataUrl(val.dataUrl))continue;
+        if(val.dataUrl.length>2*1024*1024*1.4)continue; // ~2MB after base64
+        out[safeStr(key,100)]={
+          dataUrl:val.dataUrl,
+          addedAt:safeStr(val.addedAt,40)||new Date().toISOString(),
+        };
+      }
+      return Object.keys(out).length?out:null;
+    })();
     const sanitized=valid.map(sanitizeWorkout);
     const doReplace=()=>{
       dispatch({type:'SET_HIST',hist:sanitized});
@@ -537,6 +621,8 @@ function App(){
       if(importedEx)dispatch({type:'SET_ALL',payload:{customExercises:importedEx}});
       if(importedExTypes)dispatch({type:'SET_ALL',payload:{customExTypes:importedExTypes}});
       if(importedMeas)dispatch({type:'SET_ALL',payload:{measLog:importedMeas}});
+      if(importedDemos)dispatch({type:'SET_ALL',payload:{exerciseDemos:importedDemos}});
+      if(importedPhotos)dispatch({type:'SET_ALL',payload:{exercisePhotos:importedPhotos}});
     };
     if(hist.length===0){
       doReplace();
@@ -556,6 +642,19 @@ function App(){
         if(importedEx)dispatch({type:'SET_ALL',payload:{customExercises:importedEx}});
         if(importedExTypes)dispatch({type:'SET_ALL',payload:{customExTypes:importedExTypes}});
         if(importedMeas)dispatch({type:'SET_ALL',payload:{measLog:importedMeas}});
+        // Demo / photo merge: existing entries win — never silently overwrite
+        // a demo or photo the user has already set on this device with one
+        // from an older backup.
+        if(importedDemos){
+          const cur=exerciseDemos||{};
+          const merged={...importedDemos,...cur};
+          dispatch({type:'SET_ALL',payload:{exerciseDemos:merged}});
+        }
+        if(importedPhotos){
+          const cur=exercisePhotos||{};
+          const merged={...importedPhotos,...cur};
+          dispatch({type:'SET_ALL',payload:{exercisePhotos:merged}});
+        }
         appConfirm("Merged — "+newOnly.length+" new workout"+(newOnly.length!==1?"s":"")+" added ("+merged.length+" total).").then(()=>{});
       }else if(choice==="replace"){
         doReplace();
@@ -564,7 +663,7 @@ function App(){
       // cancel: do nothing
     });
     return true;
-  },[hist,showImportDialog]);
+  },[hist,showImportDialog,exerciseDemos,exercisePhotos]);
 
   const importBackup=e=>{
     const file=e.target.files&&e.target.files[0];
@@ -721,7 +820,7 @@ function App(){
   const doSnapshot=()=>{
     if(!hist.length)return;
     const ts=today();
-    const snap={version:3,date:ts,workouts:hist,customPlans,bwLog,customExercises,customExTypes,createdAt:new Date().toISOString()};
+    const snap={version:4,date:ts,workouts:hist,customPlans,bwLog,customExercises,customExTypes,exerciseDemos:exerciseDemos||{},exercisePhotos:exercisePhotos||{},createdAt:new Date().toISOString()};
     idbSet("il_snapshot_"+ts,snap);
     idbSet("il_last_snapshot",ts);
     setLastSnapshot(ts);setSnapshotDue(false);
@@ -840,6 +939,8 @@ function App(){
             restPresets={restPresets} onSaveRestPreset={saveRestPreset}
             collapsedExs={collapsedExs} setCollapsedExs={setCollapsedExs}
             deloadNotice={deloadNotice} onDismissDeload={()=>setDeloadNotice(false)}
+            exerciseDemos={exerciseDemos} onSetExDemo={setExDemo} onDelExDemo={delExDemo}
+            exercisePhotos={exercisePhotos} onSetExPhoto={setExPhoto} onDelExPhoto={delExPhoto}
           /></ErrorBoundary>}
           {loaded&&tab==="history"&&<ErrorBoundary name="History" c={c}><HistoryPageM hist={hist} c={c} unit={unit} onDelete={delW} onExportCSV={exportCSV} onRepeat={repeatW} onSaveAsPlan={saveCustomPlan} customPlans={customPlans} bwKg={bwLog.length?bwLog[bwLog.length-1].kg:0}/></ErrorBoundary>}
           {loaded&&tab==="progress"&&<ErrorBoundary name="Progress" c={c}><ProgressPageM hist={hist} c={c} unit={unit} bwLog={bwLog} onLogBW={logBW} onDeleteBW={deleteBW} customExercises={customExercises} measLog={measLog} onLogMeas={logMeas} onDeleteMeas={deleteMeas} bwKg={bwLog.length?bwLog[bwLog.length-1].kg:0} bwUnit={effectiveBwUnit} onSetBwUnit={setBwUnit} streakDays={streakDays}/></ErrorBoundary>}

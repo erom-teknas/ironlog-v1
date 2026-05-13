@@ -9,6 +9,8 @@ import {
   // Additional functional icons for zero-emoji sweep
   Bell, AlertTriangle, Search, Star, Pencil, RefreshCw, WifiOff,
   Smartphone, Camera, AlertOctagon, ClipboardList, Package, Repeat2,
+  // Demo video icons
+  Play, PlayCircle, Video,
 } from 'lucide-react';
 
 const ic = (Icon, size) => () => <Icon size={size} strokeWidth={2} />;
@@ -91,6 +93,11 @@ export const ICrash       = ic(AlertOctagon, 28);
 export const IClipboard   = ic(ClipboardList, 16);
 export const IPackage     = ic(Package, 48);
 export const IRepeat      = ic(Repeat2, 14);
+
+// Demo video icons
+export const IPlay        = ic(Play, 12);
+export const IPlayCircle  = ic(PlayCircle, 18);
+export const IVideo       = ic(Video, 14);
 
 export const TABS = [
   { id: "home",     label: "Home",     Icon: IHome  },
