@@ -77,7 +77,25 @@ export function resumeACtx(){
   return ctx;
 }
 export function cancelScheduledBeeps(){
-  _scheduledBeeps.forEach(function(n){try{n.stop();}catch(e){}});
+  // Belt-and-suspenders cancel. Safari/WKWebView has a known bug where
+  // calling .stop() on an oscillator before its scheduled .start() time
+  // elapses does NOT actually prevent the future start — the oscillator
+  // fires anyway. So we also (1) cancel every scheduled gain ramp and
+  // force the gain to 0 right now, which silences the oscillator even if
+  // it does play, and (2) disconnect both nodes from the audio graph.
+  _scheduledBeeps.forEach(function(entry){
+    // Each entry is { osc, gain }; old code pushed bare oscillators —
+    // tolerate both shapes for safety during the rollout.
+    var osc=entry&&entry.osc?entry.osc:entry;
+    var gain=entry&&entry.gain?entry.gain:null;
+    if(gain){
+      try{gain.gain.cancelScheduledValues(0);}catch(e){}
+      try{gain.gain.setValueAtTime(0,0);}catch(e){}
+      try{gain.disconnect();}catch(e){}
+    }
+    try{if(osc&&osc.stop)osc.stop();}catch(e){}
+    try{if(osc&&osc.disconnect)osc.disconnect();}catch(e){}
+  });
   _scheduledBeeps=[];
 }
 export function scheduleBeepsAt(fireAtMs){
@@ -87,6 +105,11 @@ export function scheduleBeepsAt(fireAtMs){
   var delayS=(fireAtMs-Date.now())/1000;
   if(delayS<0)delayS=0;
   var lastEndS=delayS+0.5+0.36; // last beep end time relative to now
+  // Track this scheduling pass so a stale suspend-and-clear setTimeout from
+  // a previous call can't trample over the new beeps. Each call gets a
+  // unique token; the timeout below checks the current token before acting.
+  var token={};
+  _scheduledBeeps.token=token;
   [[880,0],[880,0.25],[1046,0.5]].forEach(function(pair){
     var freq=pair[0],off=pair[1];
     var t=ctx.currentTime+delayS+off;
@@ -98,10 +121,14 @@ export function scheduleBeepsAt(fireAtMs){
     g.gain.linearRampToValueAtTime(0.5,t+0.02);
     g.gain.exponentialRampToValueAtTime(0.001,t+0.35);
     o.start(t);o.stop(t+0.36);
-    _scheduledBeeps.push(o);
+    // Store the pair so cancel can reach the gain node.
+    _scheduledBeeps.push({osc:o,gain:g});
   });
-  // Suspend context after last beep to release audio hardware
+  // Suspend context after last beep to release audio hardware. Only act if
+  // we're still the latest scheduling pass — otherwise a newer scheduleBeepsAt
+  // already replaced our beeps and we shouldn't clear its array.
   setTimeout(function(){
+    if(_scheduledBeeps.token!==token)return;
     _scheduledBeeps=[];
     if(_actx&&_actx.state==="running")_actx.suspend().catch(function(){});
   },Math.ceil(lastEndS*1000)+200);
