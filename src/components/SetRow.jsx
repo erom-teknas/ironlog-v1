@@ -173,7 +173,10 @@ export default function SetRow({
                   <input
                     type="number" inputMode="decimal"
                     className="il-ghost-input"
-                    value={s.weight && parseFloat(s.weight) ? fmtW(s.weight, unit) : s.weight}
+                    // Render empty string for 0 / "" / 0-as-string so users don't
+                    // have to manually delete a pre-filled "0" before typing.
+                    // The placeholder shows the ghost value or "0" as a hint.
+                    value={s.weight && parseFloat(s.weight) ? fmtW(s.weight, unit) : (s.weight && s.weight !== "0" && s.weight !== 0 ? s.weight : "")}
                     placeholder={ghostW || "0"}
                     onChange={v => upd(exId, s.id, "weight", unit === "lb" && v.target.value ? String(storeW(v.target.value, "lb")) : v.target.value)}
                     autoFocus={idx === 0 && !s.done && !s.weight}
@@ -185,7 +188,9 @@ export default function SetRow({
                   <input
                     type="number" inputMode="numeric"
                     className="il-ghost-input"
-                    value={s.reps}
+                    // Empty string instead of 0 so a fresh set doesn't show "0"
+                    // that the user has to wipe before entering reps.
+                    value={s.reps || ""}
                     placeholder={ghostR || "0"}
                     onChange={v => upd(exId, s.id, "reps", v.target.value)}
                     style={{ width: "100%", background: c.card2, border: "2px solid " + c.border, borderRadius: 12, padding: "14px 6px", fontSize: 22, fontWeight: 800, color: c.text, outline: "none", textAlign: "center", fontFamily: "inherit", boxSizing: "border-box" }}
@@ -316,7 +321,9 @@ export default function SetRow({
           <div style={{ fontSize: 11, color: c.sub, fontWeight: 700, marginBottom: 6 }}>REPS</div>
           <input
             type="number" inputMode="numeric"
-            value={s.reps}
+            // Empty string for 0 so the user doesn't have to delete a "0".
+            value={s.reps || ""}
+            placeholder="0"
             onChange={v => upd(exId, s.id, "reps", v.target.value)}
             style={{ width: "100%", background: c.card2, border: "2px solid " + c.border, borderRadius: 12, padding: "14px 6px", fontSize: 22, fontWeight: 800, color: c.text, outline: "none", textAlign: "center", fontFamily: "inherit", boxSizing: "border-box" }}
           />
