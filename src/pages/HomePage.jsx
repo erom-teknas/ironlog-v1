@@ -7,6 +7,18 @@ import { IPlus, IGrid, ILog, IScale } from '../icons';
 export default function HomePage({ hist, dark, c, unit = 'kg', onBlank, onPlan, onUsePlan, bwLog = [], onLogBW, bwUnit, onSetBwUnit, customPlans = [], customExercises = {}, streakDays = 1 }) {
   const effectiveBwUnit = bwUnit || unit;
   const [bwInput, setBwInput] = useState('');
+  // Separate input state for the quick-log row in the hero card so typing
+  // there doesn't leak into the full Body Weight section at the bottom.
+  const [quickBwInput, setQuickBwInput] = useState('');
+  const loggedBwToday = bwLog.some(x => x.date === today());
+  const handleQuickLogBw = () => {
+    const n = parseFloat(quickBwInput);
+    const maxW = effectiveBwUnit === 'lb' ? 700 : 320;
+    const minW = effectiveBwUnit === 'lb' ? 45 : 20;
+    if (!n || n < minW || n > maxW) { setQuickBwInput(''); return; }
+    onLogBW(effectiveBwUnit === 'lb' ? Math.round(lbToKg(n) * 100) / 100 : n);
+    setQuickBwInput('');
+  };
 
   const streak = getStreak(hist, streakDays), now = new Date();
   const weekVol = hist.filter(w => (now - new Date(w.date)) / 86400000 <= 7).reduce((s, w) => s + w.exercises.reduce((a, e) => a + calcVol(e.sets), 0), 0);
@@ -62,6 +74,54 @@ export default function HomePage({ hist, dark, c, unit = 'kg', onBlank, onPlan, 
           <h1 style={{ margin: '0 0 20px', fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1.15, color: c.text }}>
             {hist.length === 0 ? "Let's get to work." : 'Ready to lift!'}
           </h1>
+
+          {/* ── Quick body-weight log ───────────────────────────────────────
+              Only appears when today's weight hasn't been logged yet, so the
+              morning check-in is one tap away from app open (no scroll).
+              Hides itself once logged — the full Body Weight section at the
+              bottom is still there for editing/history. */}
+          {!loggedBwToday && (
+            <div style={{
+              marginBottom: 16,
+              background: c.card2,
+              border: '1px solid ' + c.border,
+              borderRadius: 16,
+              padding: '10px 12px',
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              <IScale />
+              <input
+                type="number"
+                inputMode="decimal"
+                value={quickBwInput}
+                onChange={e => setQuickBwInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleQuickLogBw(); }}
+                placeholder={"Today's weight (" + effectiveBwUnit.toUpperCase() + ")"}
+                style={{
+                  flex: 1, minWidth: 0,
+                  background: 'transparent', border: 'none',
+                  fontSize: 14, color: c.text, fontFamily: 'inherit',
+                  outline: 'none', padding: '6px 0',
+                  WebkitAppearance: 'none',
+                }}
+              />
+              <button
+                onClick={handleQuickLogBw}
+                disabled={!quickBwInput}
+                style={{
+                  background: quickBwInput ? c.accent : c.muted,
+                  color: quickBwInput ? '#fff' : c.sub,
+                  border: 'none', borderRadius: 11,
+                  padding: '0 14px', minHeight: 36,
+                  fontSize: 12, fontWeight: 800, cursor: quickBwInput ? 'pointer' : 'default',
+                  fontFamily: 'inherit', letterSpacing: '-0.01em',
+                  flexShrink: 0,
+                }}
+              >
+                Log
+              </button>
+            </div>
+          )}
 
           {/* Stat chips */}
           <div style={{ display: 'flex', gap: 8 }}>
