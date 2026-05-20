@@ -231,10 +231,20 @@ export default function HomePage({ hist, dark, c, unit = 'kg', onBlank, onPlan, 
 
           {/* ── Today's Muscles ── */}
           <CollapsibleSection title="Today's Muscles" icon={<ILog/>} sub={todayM.length ? todayM.join(' · ') : 'Nothing logged yet'} c={c}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{ flex: 1, fontSize: 13, color: c.sub, lineHeight: 1.6 }}>{todayM.length ? todayM.join(' · ') : 'Nothing yet — start a workout!'}</div>
-              <div style={{ width: 76, flexShrink: 0 }}><MuscleMap trained={todayM} c={c} /></div>
+            {/* Image gets its own full-width row so the landscape character
+                actually has room to render at a useful size. The trained
+                muscles are already shown as text in the section header's
+                `sub`, so no duplicate list is needed inside. */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: todayM.length ? 4 : 0 }}>
+              <div style={{ width: '100%', maxWidth: 280 }}>
+                <MuscleMap trained={todayM} c={c} />
+              </div>
             </div>
+            {!todayM.length && (
+              <div style={{ fontSize: 13, color: c.sub, lineHeight: 1.6, textAlign: 'center', marginTop: 8 }}>
+                Nothing yet — start a workout!
+              </div>
+            )}
           </CollapsibleSection>
 
           {/* ── Last Workout ── */}
