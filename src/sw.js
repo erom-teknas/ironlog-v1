@@ -1,7 +1,7 @@
 // IronLog Service Worker — cache-first + rest timer notifications
 // self.__WB_MANIFEST is injected by vite-plugin-pwa with all built asset URLs
 
-var CACHE = 'ironlog-v145'; // feat: settings tabs (General/Equipment/Data) + configurable streak rest days 1-3
+var CACHE = 'ironlog-1779301496740'; // feat: settings tabs (General/Equipment/Data) + configurable streak rest days 1-3
 
 self.addEventListener('install', function(e) {
   var entries = self.__WB_MANIFEST || [];
@@ -14,7 +14,12 @@ self.addEventListener('install', function(e) {
           return cache.add(url).catch(function() {});
         })
       );
-    }).then(function() { return self.skipWaiting(); })
+    })
+    // NOTE: we deliberately do NOT call self.skipWaiting() here.
+    // With registerType:'prompt' (vite-plugin-pwa), the new SW must stay
+    // in "waiting" state so useRegisterSW() can fire its needRefresh event
+    // and show the update banner. The SKIP_WAITING message handler below
+    // promotes the SW to active when the user taps Refresh in the banner.
   );
 });
 
