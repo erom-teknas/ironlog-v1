@@ -49,7 +49,16 @@ export default function HomePage({ hist, dark, c, unit = 'kg', onBlank, onPlan, 
 
   if (hist.length) {
     const ds = {};
-    [...hist].reverse().forEach(w => w.exercises.forEach(e => { if (!ds[e.muscle]) ds[e.muscle] = Math.floor((now - new Date(w.date)) / 86400000); }));
+    // Iterate newest-first so the FIRST time we see a muscle, that's the most
+    // recent date it was trained. Use `in` (not truthiness) to test for key
+    // presence — otherwise a value of 0 (= "trained today") looks falsy and
+    // gets overwritten by older workouts, falsely flagging the muscle as
+    // untrained. Also skip exercises with no muscle field (e.g., cardio).
+    [...hist].reverse().forEach(w => w.exercises.forEach(e => {
+      if (e.muscle && !(e.muscle in ds)) {
+        ds[e.muscle] = Math.floor((now - new Date(w.date)) / 86400000);
+      }
+    }));
     Object.entries(ds).forEach(([m, d]) => { if (d >= 5) insights.push({ msg: m + ' not trained in ' + d + ' days', col: 'am' }); });
     if (weekVol > 4000) insights.push({ msg: 'Strong week — ' + (unit === 'lb' ? Math.round(kgToLb(weekVol) / 1000) + 'k lb' : Math.round(weekVol / 1000) + 'k kg') + ' lifted', col: 'g' });
     if (streak >= 3) insights.push({ msg: streak + '-day streak! Keep going!', col: 'ac' });
