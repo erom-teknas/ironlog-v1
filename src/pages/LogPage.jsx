@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom';
 import { BAR_TYPES, PLATES_LB, PLATES_KG, PCOL_LB, PCOL } from '../constants';
 import { uid, today, fmtD, calcVol, bestRM, calc1RM, kgToLb, fmtW, storeW, calcPlates, fmtVol, haptic, isCardioEx, getExInputType, isTimedEx } from '../utils';
-import { useConfirm } from '../hooks.jsx';
+import { useConfirm, useFinishDialog } from '../hooks.jsx';
 import { ITrash, ICheck, IX, IBell, IStar, IActivity, IPencil, IBarbell, IPlay, IVideo, ICamera } from '../icons';
 import DemoEditor from '../components/DemoEditor';
 import PhotoView from '../components/PhotoView';
@@ -82,6 +82,7 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
   const rating=draftRating, setRating=setDraftRating;
   const notes=draftNotes, setNotes=setDraftNotes;
   const {confirm:dlgConfirm,confirmEl}=useConfirm(c);
+  const {show:dlgFinish,finishDialogEl}=useFinishDialog(c);
   const [platePickerFor,setPlatePickerFor]=useState(null);
   const [plateConfirmed,setPlateConfirmed]=useState({});
   // Demo / photo state — stores the exercise NAME (since the maps are
@@ -529,11 +530,21 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
   const remE=eid=>setExs(p=>p.filter(e=>e.id!==eid));
   // Feature 4: bodyweight toggle per exercise
   const toggleBW=(eid)=>setExs(p=>p.map(e=>e.id!==eid?e:{...e,bodyweight:!e.bodyweight,sets:e.sets.map(s=>({...s,bodyweight:!e.bodyweight,weight:!e.bodyweight?"BW":""}))}));
-  const finish=()=>{
+  const finish=async()=>{
     if(!exs.length)return;
-    // Merge per-exercise notes into exs before saving, then drop any
-    // exercises where the user never tapped done on a single set
-    const exsWithNotes=exs
+    // Count sets with data filled in but not yet marked done
+    const hasData=s=>((parseFloat(s.weight)||0)>0||(parseInt(s.reps)||0)>0||(parseFloat(s.secs)||0)>0||(parseFloat(s.mins)||0)>0);
+    const incompleteSets=exs.reduce((n,e)=>n+e.sets.filter(s=>!s.done&&hasData(s)).length,0);
+    let resolvedExs=exs;
+    if(incompleteSets>0){
+      const choice=await dlgFinish(incompleteSets);
+      if(choice==="cancel")return;
+      if(choice==="markdone"){
+        resolvedExs=exs.map(e=>({...e,sets:e.sets.map(s=>(!s.done&&hasData(s)?{...s,done:true}:s))}));
+      }
+    }
+    // Merge notes, keep only exercises with at least one done set, strip undone sets
+    const exsWithNotes=resolvedExs
       .map(e=>exNotes[e.id]!==undefined?{...e,notes:exNotes[e.id]}:e)
       .filter(e=>e.sets.some(s=>s.done))
       .map(e=>({...e,sets:e.sets.filter(s=>s.done)}));
@@ -561,7 +572,7 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
 
   return(
     <div style={{overflowX:"hidden",overflowY:"hidden",display:"flex",flexDirection:"column",height:"calc(100dvh - 124px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))"}}>
-      {confirmEl}
+      {confirmEl}{finishDialogEl}
       {/* ── Sticky workout header ── */}
       <div style={{background:c.bg+"f5",backdropFilter:"saturate(180%) blur(16px)",WebkitBackdropFilter:"saturate(180%) blur(16px)",padding:"5px 16px 6px",borderBottom:"1px solid "+c.border,flexShrink:0}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
