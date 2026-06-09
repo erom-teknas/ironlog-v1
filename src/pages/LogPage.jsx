@@ -566,6 +566,19 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
     setSaved(true);
   };
   useEffect(()=>{if(finishRef)finishRef.current=finish;},[exs,rating,notes,logName,saved,dlgFinish]);
+  // Compute recently used exercises from history (ordered most-recent first, deduped)
+  const recentExercises=React.useMemo(()=>{
+    const seen=new Set();
+    const result=[];
+    for(let i=hist.length-1;i>=0&&result.length<8;i--){
+      const w=hist[i];
+      for(const ex of(w.exercises||[])){
+        if(!seen.has(ex.name)){seen.add(ex.name);result.push({name:ex.name,muscle:ex.muscle||''});}
+        if(result.length>=8)break;
+      }
+    }
+    return result;
+  },[hist]);
   const tv=exs.reduce((s,e)=>s+calcVol(e.sets.filter(x=>!x.bodyweight)),0);
   const doneCount=exs.reduce((s,e)=>s+e.sets.filter(x=>x.done).length,0);
   const total=exs.reduce((s,e)=>s+e.sets.length,0);
@@ -1314,7 +1327,7 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
       })()}
 
       {/* ── Add Exercise Picker ── */}
-      {picker&&<ExercisePicker c={c} customExercises={customExercises} customExTypes={customExTypes} onAddCustomEx={onAddCustomEx} onDeleteCustomEx={onDeleteCustomEx} onRenameCustomEx={onRenameCustomEx} onAddEx={addEx} onClose={closePicker}/>}
+      {picker&&<ExercisePicker c={c} customExercises={customExercises} customExTypes={customExTypes} onAddCustomEx={onAddCustomEx} onDeleteCustomEx={onDeleteCustomEx} onRenameCustomEx={onRenameCustomEx} onAddEx={addEx} onClose={closePicker} recentExercises={recentExercises}/>}
 
       {/* ── Hidden file input shared by all photo upload buttons ── */}
       <input
