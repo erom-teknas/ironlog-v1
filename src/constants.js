@@ -36,31 +36,31 @@ export const MG=["Chest","Back","Shoulders","Biceps","Triceps","Legs","Core","Gl
 export const EX_TYPES={
   // ── TIMED (seconds) ──────────────────────────────────────────────────────────
   "Plank":"timed","Side Plank":"timed","Reverse Plank":"timed","RKC Plank":"timed",
-  "Plank with Hip Dip":"timed","Plank Shoulder Tap":"timed","Plank Up-Down":"timed",
+  "Plank with Hip Dip":"timed","Plank Shoulder Tap":"bodyweight","Plank Up-Down":"bodyweight",
   "Extended Plank":"timed","Stir the Pot":"timed","Wall Sit":"timed",
   "Hollow Body Hold":"timed","L-Sit":"timed","Hanging L-Sit":"timed",
   "Dead Bug":"timed","Bird Dog":"timed","Battle Ropes":"timed","Shadow Boxing":"timed",
   "Yoga Flow":"timed","Hip Circle Walk":"timed",
   // ── BODYWEIGHT (reps, no weight field) ───────────────────────────────────────
   // Chest
-  "Push-Up":"bodyweight","Wide Push-Up":"bodyweight","Decline Push-Up":"bodyweight",
-  "Incline Push-Up":"bodyweight","Archer Push-Up":"bodyweight","Clap Push-Up":"bodyweight",
-  "Ring Push-Up":"bodyweight","Pseudo Planche Push-Up":"bodyweight","T-Push-Up":"bodyweight",
-  "Chest Dip":"bodyweight","TRX Fly":"bodyweight",
+  "Push-Up":"weighted","Wide Push-Up":"weighted","Decline Push-Up":"weighted",
+  "Incline Push-Up":"weighted","Archer Push-Up":"weighted","Clap Push-Up":"weighted",
+  "Ring Push-Up":"weighted","Pseudo Planche Push-Up":"weighted","T-Push-Up":"weighted",
+  "Chest Dip":"weighted","TRX Fly":"weighted",
   // Back
-  "Pull-Up":"bodyweight","Chin-Up":"bodyweight","Wide-Grip Pull-Up":"bodyweight",
-  "Neutral-Grip Pull-Up":"bodyweight","Assisted Pull-Up":"bodyweight",
-  "Close-Grip Pull-Up":"bodyweight","Ring Pull-Up":"bodyweight",
-  "Band-Assisted Pull-Up":"bodyweight","Scapular Pull-Up":"bodyweight",
-  "TRX Row":"bodyweight","Inverted Row":"bodyweight","Superman":"bodyweight",
+  "Pull-Up":"weighted","Chin-Up":"weighted","Wide-Grip Pull-Up":"weighted",
+  "Neutral-Grip Pull-Up":"weighted","Assisted Pull-Up":"weighted",
+  "Close-Grip Pull-Up":"weighted","Ring Pull-Up":"weighted",
+  "Band-Assisted Pull-Up":"weighted","Scapular Pull-Up":"weighted",
+  "TRX Row":"weighted","Inverted Row":"weighted","Superman":"weighted",
   // Biceps
-  "Neutral-Grip Chin-Up":"bodyweight","TRX Curl":"bodyweight","Inverted Curl":"bodyweight",
+  "Neutral-Grip Chin-Up":"weighted","TRX Curl":"weighted","Inverted Curl":"weighted",
   // Triceps
-  "Diamond Push-Up":"bodyweight","Tricep Push-Up":"bodyweight",
-  "Bodyweight Tricep Extension":"bodyweight","Parallel Bar Dip":"bodyweight",
-  "Ring Dip":"bodyweight","Bench Dip":"bodyweight","Close-Grip Push-Up":"bodyweight",
+  "Diamond Push-Up":"weighted","Tricep Push-Up":"weighted",
+  "Bodyweight Tricep Extension":"weighted","Parallel Bar Dip":"weighted",
+  "Ring Dip":"weighted","Bench Dip":"weighted","Close-Grip Push-Up":"weighted",
   // Shoulders
-  "Handstand Push-Up":"bodyweight","Pike Push-Up":"bodyweight",
+  "Handstand Push-Up":"weighted","Pike Push-Up":"weighted",
   "Prone Y-Raise":"bodyweight","Prone T-Raise":"bodyweight","Prone W-Raise":"bodyweight",
   // Legs
   "Pistol Squat":"bodyweight","Assisted Pistol Squat":"bodyweight",
@@ -92,8 +92,8 @@ export const EX_TYPES={
   "Banded Hip Extension":"bodyweight","Lateral Band Walk":"bodyweight",
   // Cardio (reps-based — stay in Cardio group but use reps)
   "Burpee":"bodyweight","Jumping Jacks":"bodyweight","High Knees":"bodyweight",
-  "Jump Rope":"bodyweight","Shuttle Run":"bodyweight","Agility Ladder":"bodyweight",
-  "Skipping":"bodyweight","Tire Flip":"bodyweight",
+  "Jump Rope":"timed","Shuttle Run":"bodyweight","Agility Ladder":"bodyweight",
+  "Skipping":"timed","Tire Flip":"bodyweight",
   // ── CARDIO (time + distance) ─────────────────────────────────────────────────
   "Treadmill":"cardio","Elliptical":"cardio","Stationary Bike":"cardio",
   "Rowing Machine":"cardio","Stair Master":"cardio","Stair Stepper":"cardio",
@@ -104,7 +104,7 @@ export const EX_TYPES={
   "Trail Running":"cardio","Nordic Walking":"cardio","Power Walk":"cardio",
   "Aqua Jogging":"cardio","Sprint":"cardio","Rope Climbing":"cardio","Climbing":"cardio",
   "Aqua Aerobics":"cardio","Circuit Training":"cardio",
-  "Sled Push":"cardio","Sled Pull":"cardio",
+  "Sled Push":"weighted","Sled Pull":"weighted",
   "Zumba":"cardio","Aerobics":"cardio","Step Aerobics":"cardio","Dance Cardio":"cardio",
   "Kickboxing":"cardio","Pilates":"cardio","HIIT Class":"cardio",
   "Basketball":"cardio","Soccer":"cardio","Tennis":"cardio","Badminton":"cardio",

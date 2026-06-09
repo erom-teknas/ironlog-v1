@@ -60,6 +60,41 @@ export function useImportDialog(c){
   ):null;
   return{show,importDialogEl:el};
 }
+// ─── Finish Workout Dialog — 3-way: Mark All Done / Save As-Is / Cancel
+export function useFinishDialog(c){
+  const [state,setState]=React.useState(null);
+  const show=(incompleteSets)=>new Promise(resolve=>setState({incompleteSets,resolve}));
+  const respond=(v)=>{if(state){state.resolve(v);setState(null);}};
+  const el=state?(
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',zIndex:9999,display:'flex',alignItems:'flex-end',justifyContent:'center',
+      padding:'0 16px calc(24px + env(safe-area-inset-bottom,0px))',touchAction:'manipulation'}}
+      onClick={()=>respond('cancel')}>
+      <div style={{background:c.card,borderRadius:22,padding:'20px',width:'100%',maxWidth:420,boxShadow:'0 20px 60px rgba(0,0,0,0.5)',cursor:'default'}}
+        onClick={e=>e.stopPropagation()}>
+        <div style={{fontSize:15,fontWeight:800,color:c.text,marginBottom:6,textAlign:'center'}}>Finish Workout?</div>
+        <div style={{fontSize:13,color:c.sub,marginBottom:20,textAlign:'center',lineHeight:1.5}}>
+          {state.incompleteSets} set{state.incompleteSets!==1?'s':''} — data filled in but not marked done.
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+          <button onClick={()=>{haptic('medium');respond('markdone');}}
+            style={{background:c.accent,border:'none',borderRadius:13,padding:'14px',fontSize:14,fontWeight:800,cursor:'pointer',color:'#fff',fontFamily:'inherit',minHeight:44}}>
+            ✓ Mark all as done &amp; save
+          </button>
+          <button onClick={()=>{haptic('medium');respond('asis');}}
+            style={{background:c.card2,border:'1.5px solid '+c.border,borderRadius:13,padding:'14px',fontSize:14,fontWeight:800,cursor:'pointer',color:c.text,fontFamily:'inherit',minHeight:44}}>
+            Save only completed sets
+          </button>
+          <button onClick={()=>{haptic('light');respond('cancel');}}
+            style={{background:'transparent',border:'none',borderRadius:13,padding:'13px',fontSize:13,fontWeight:700,cursor:'pointer',color:c.sub,fontFamily:'inherit',minHeight:44}}>
+            Cancel — keep logging
+          </button>
+        </div>
+      </div>
+    </div>
+  ):null;
+  return{show,finishDialogEl:el};
+}
+
 
 // ─── Audio helpers ─────────────────────────────────────────────────────────────
 // The Web Audio clock runs independently of the JS event loop and screen lock.

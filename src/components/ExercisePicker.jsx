@@ -35,6 +35,7 @@ export default function ExercisePicker({
   onRenameCustomEx,
   onAddEx,   // (name, muscle) — LogPage adds the exercise + closes the picker
   onClose,   // () — parent sets picker=false
+  recentExercises = [],
 }) {
   const [pickerScreen, setPickerScreen] = useState("grid"); // "grid" | "list"
   const [pm, setPm] = useState(MG[0]);
@@ -57,6 +58,7 @@ export default function ExercisePicker({
   const filteredBuiltin = EX ? (EX[pm] || []).filter(
     n => !searchLower || n.toLowerCase().includes(searchLower)
   ) : [];
+  const recentForMuscle = recentExercises.filter(e => e.muscle === pm);
   const crossResults = searchLower ? [
     ...Object.entries(customExercises).flatMap(([m, names]) =>
       names.filter(n => n.toLowerCase().includes(searchLower)).map(n => ({ name: n, muscle: m, custom: true }))
@@ -174,6 +176,24 @@ export default function ExercisePicker({
         </div>
 
         {/* ── SCREEN 1: Muscle Group Grid ── */}
+        {pickerScreen === "grid" && !searchLower && recentExercises.length > 0 && (
+          <div style={{flexShrink:0,padding:"0 16px 4px"}}>
+            <div style={{fontSize:11,fontWeight:700,color:c.sub,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:8}}>Recent</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+              {recentExercises.map(ex=>(
+                <button key={ex.name} onClick={()=>{onAddEx(ex.name,ex.muscle);onClose();}}
+                  style={{background:c.card2,border:"1px solid "+c.border,borderRadius:20,
+                    padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",
+                    color:c.text,fontFamily:"inherit",minHeight:32,whiteSpace:"nowrap",
+                    display:"flex",alignItems:"center",gap:4}}>
+                  {ex.name}
+                  {ex.muscle&&<span style={{fontSize:10,color:c.sub,fontWeight:600}}>{ex.muscle}</span>}
+                </button>
+              ))}
+            </div>
+            <div style={{height:1,background:c.border,margin:"12px 0 4px"}}/>
+          </div>
+        )}
         {pickerScreen === "grid" && !searchLower && (
           <div style={{
             flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch",

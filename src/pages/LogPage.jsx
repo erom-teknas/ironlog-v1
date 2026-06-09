@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom';
 import { BAR_TYPES, PLATES_LB, PLATES_KG, PCOL_LB, PCOL } from '../constants';
 import { uid, today, fmtD, calcVol, bestRM, calc1RM, kgToLb, fmtW, storeW, calcPlates, fmtVol, haptic, isCardioEx, getExInputType, isTimedEx } from '../utils';
-import { useConfirm } from '../hooks.jsx';
+import { useConfirm, useFinishDialog } from '../hooks.jsx';
 import { ITrash, ICheck, IX, IBell, IStar, IActivity, IPencil, IBarbell, IPlay, IVideo, ICamera } from '../icons';
 import DemoEditor from '../components/DemoEditor';
 import PhotoView from '../components/PhotoView';
@@ -82,6 +82,7 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
   const rating=draftRating, setRating=setDraftRating;
   const notes=draftNotes, setNotes=setDraftNotes;
   const {confirm:dlgConfirm,confirmEl}=useConfirm(c);
+  const {show:dlgFinish,finishDialogEl}=useFinishDialog(c);
   const [platePickerFor,setPlatePickerFor]=useState(null);
   const [plateConfirmed,setPlateConfirmed]=useState({});
   // Demo / photo state — stores the exercise NAME (since the maps are
@@ -529,10 +530,26 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
   const remE=eid=>setExs(p=>p.filter(e=>e.id!==eid));
   // Feature 4: bodyweight toggle per exercise
   const toggleBW=(eid)=>setExs(p=>p.map(e=>e.id!==eid?e:{...e,bodyweight:!e.bodyweight,sets:e.sets.map(s=>({...s,bodyweight:!e.bodyweight,weight:!e.bodyweight?"BW":""}))}));
-  const finish=()=>{
+  const finish=async()=>{
     if(!exs.length)return;
-    // Merge per-exercise notes into exs before saving
-    const exsWithNotes=exs.map(e=>exNotes[e.id]!==undefined?{...e,notes:exNotes[e.id]}:e);
+    // Count sets with data filled in but not yet marked done
+    const hasData=s=>((parseFloat(s.weight)||0)>0||(parseInt(s.reps)||0)>0||(parseFloat(s.secs)||0)>0||(parseFloat(s.mins)||0)>0||(parseFloat(s.dist)||0)>0);
+    const incompleteSets=exs.reduce((n,e)=>n+e.sets.filter(s=>!s.done&&hasData(s)).length,0);
+    console.log("[finish] incompleteSets:",incompleteSets,exs.flatMap(e=>e.sets).map(s=>({done:s.done,w:s.weight,r:s.reps,hd:hasData(s)})));
+    let resolvedExs=exs;
+    if(incompleteSets>0){
+      const choice=await dlgFinish(incompleteSets);
+      if(choice==="cancel")return;
+      if(choice==="markdone"){
+        resolvedExs=exs.map(e=>({...e,sets:e.sets.map(s=>(!s.done&&hasData(s)?{...s,done:true}:s))}));
+      }
+    }
+    // Merge notes, keep only exercises with at least one done set, strip undone sets
+    const exsWithNotes=resolvedExs
+      .map(e=>exNotes[e.id]!==undefined?{...e,notes:exNotes[e.id]}:e)
+      .filter(e=>e.sets.some(s=>s.done))
+      .map(e=>({...e,sets:e.sets.filter(s=>s.done)}));
+    if(!exsWithNotes.length)return;
     // Detect PR: any exercise with a new best 1RM vs historical
     const latestBwKgF=bwLog.length?bwLog[bwLog.length-1].kg:0;
     const hasPR=exsWithNotes.some(ex=>{
@@ -548,7 +565,20 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
     onSave({id:uid(),name:(logName||"").trim()||"Workout "+fmtD(today()),date:today(),exercises:exsWithNotes,rating,notes,duration});
     setSaved(true);
   };
-  useEffect(()=>{if(finishRef)finishRef.current=finish;},[exs,rating,notes,logName,saved]);
+  useEffect(()=>{if(finishRef)finishRef.current=finish;},[exs,rating,notes,logName,saved,dlgFinish]);
+  // Compute recently used exercises from history (ordered most-recent first, deduped)
+  const recentExercises=React.useMemo(()=>{
+    const seen=new Set();
+    const result=[];
+    for(let i=hist.length-1;i>=0&&result.length<8;i--){
+      const w=hist[i];
+      for(const ex of(w.exercises||[])){
+        if(!seen.has(ex.name)){seen.add(ex.name);result.push({name:ex.name,muscle:ex.muscle||''});}
+        if(result.length>=8)break;
+      }
+    }
+    return result;
+  },[hist]);
   const tv=exs.reduce((s,e)=>s+calcVol(e.sets.filter(x=>!x.bodyweight)),0);
   const doneCount=exs.reduce((s,e)=>s+e.sets.filter(x=>x.done).length,0);
   const total=exs.reduce((s,e)=>s+e.sets.length,0);
@@ -556,7 +586,7 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
 
   return(
     <div style={{overflowX:"hidden",overflowY:"hidden",display:"flex",flexDirection:"column",height:"calc(100dvh - 124px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))"}}>
-      {confirmEl}
+      {confirmEl}{finishDialogEl}
       {/* ── Sticky workout header ── */}
       <div style={{background:c.bg+"f5",backdropFilter:"saturate(180%) blur(16px)",WebkitBackdropFilter:"saturate(180%) blur(16px)",padding:"5px 16px 6px",borderBottom:"1px solid "+c.border,flexShrink:0}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
@@ -655,6 +685,7 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
                       overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",
                       letterSpacing:"-0.01em",display:"flex",alignItems:"center",gap:6}}>
                       {isCardio&&<span style={{display:"flex",color:c.g}}><IActivity/></span>}
+                      {(()=>{const photo=exercisePhotos[ex.name]?.dataUrl;const ytId=exerciseDemos[ex.name]?.videoId;const thumbSrc=photo||(ytId?`https://img.youtube.com/vi/${ytId}/default.jpg`:null);if(!thumbSrc)return null;return<img src={thumbSrc} alt="" onClick={e=>{e.stopPropagation();if(photo)setPhotoViewFor(ex.name);}} style={{width:28,height:28,borderRadius:6,objectFit:"cover",flexShrink:0,cursor:photo?"pointer":"default",border:"1.5px solid "+c.border}}/>;})()}
                       {ex.name}
                     </div>
                     <div style={{fontSize:12,color:c.sub,marginTop:3,display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
@@ -1163,8 +1194,8 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
                   {isCardioFocus?"+ Interval":"+ Set"}
                 </button>
                 {allSetsDone
-                  ?<button onClick={validateAndClose} style={{flex:1,background:c.g,border:"none",borderRadius:14,padding:"13px 16px",fontSize:15,fontWeight:800,cursor:"pointer",color:"#fff",fontFamily:"inherit",minHeight:52}}>Done ✓</button>
-                  :<button onClick={markAllDoneAndClose} style={{flex:1,background:c.g+"22",border:"1.5px solid "+c.g+"55",borderRadius:14,padding:"13px 16px",fontSize:15,fontWeight:700,cursor:"pointer",color:c.g,fontFamily:"inherit",minHeight:52}}>Done</button>
+                  ?<button onClick={validateAndClose} style={{flex:1,background:c.g,border:"none",borderRadius:14,padding:"13px 16px",fontSize:15,fontWeight:800,cursor:"pointer",color:"#fff",fontFamily:"inherit",minHeight:52}}>Mark All Done ✓</button>
+                  :<button onClick={markAllDoneAndClose} style={{flex:1,background:c.g+"22",border:"1.5px solid "+c.g+"55",borderRadius:14,padding:"13px 16px",fontSize:15,fontWeight:700,cursor:"pointer",color:c.g,fontFamily:"inherit",minHeight:52}}>Mark All Done</button>
                 }
               </div>
             </div>
@@ -1296,7 +1327,7 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
       })()}
 
       {/* ── Add Exercise Picker ── */}
-      {picker&&<ExercisePicker c={c} customExercises={customExercises} customExTypes={customExTypes} onAddCustomEx={onAddCustomEx} onDeleteCustomEx={onDeleteCustomEx} onRenameCustomEx={onRenameCustomEx} onAddEx={addEx} onClose={closePicker}/>}
+      {picker&&<ExercisePicker c={c} customExercises={customExercises} customExTypes={customExTypes} onAddCustomEx={onAddCustomEx} onDeleteCustomEx={onDeleteCustomEx} onRenameCustomEx={onRenameCustomEx} onAddEx={addEx} onClose={closePicker} recentExercises={recentExercises}/>}
 
       {/* ── Hidden file input shared by all photo upload buttons ── */}
       <input
