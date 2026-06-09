@@ -281,6 +281,21 @@ export default function ExercisePicker({
 
             {/* Single-muscle list */}
             {!searchLower && <>
+              {/* Recent for this muscle group */}
+              {recentForMuscle.length > 0 && (
+                <div style={{ marginBottom: 10, marginTop: 4 }}>
+                  <div style={{ fontSize: 10, color: c.sub, fontWeight: 700, letterSpacing: "0.08em", marginBottom: 6, paddingLeft: 2 }}>RECENT</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                    {recentForMuscle.map(ex => (
+                      <button key={ex.name} onClick={() => { onAddEx(ex.name, ex.muscle); onClose(); }}
+                        style={{ background: c.card2, border: "1px solid " + c.accent + "55", borderRadius: 20, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer", color: c.accent, fontFamily: "inherit", minHeight: 32, whiteSpace: "nowrap" }}>
+                        {ex.name}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ height: 1, background: c.border, marginBottom: 8 }} />
+                </div>
+              )}
               {/* Custom exercises */}
               {filteredCustom.length > 0 && (
                 <div style={{ marginBottom: 8, marginTop: 4 }}>

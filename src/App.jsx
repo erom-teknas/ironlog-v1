@@ -923,7 +923,7 @@ function App(){
       <div className="il-scroll" style={{overflowY:tab==="log"?"hidden":undefined}}>
         <div key={tab} className={tabDirRef.current==="r"?"il-enter-r":"il-enter-l"}>
           {!loaded&&<SkeletonPage/>}
-          {loaded&&tab==="home"&&<ErrorBoundary name="Home" c={c}><HomePageM hist={hist} dark={dark} c={c} unit={unit} onBlank={blank} onPlan={()=>setTab("plans")} onUsePlan={useTmpl} bwLog={bwLog} onLogBW={logBW} customPlans={customPlans} customExercises={customExercises} bwUnit={effectiveBwUnit} onSetBwUnit={setBwUnit} streakDays={streakDays}/></ErrorBoundary>}
+          {loaded&&tab==="home"&&<ErrorBoundary name="Home" c={c}><HomePageM hist={hist} dark={dark} c={c} unit={unit} onBlank={blank} onPlan={()=>setTab("plans")} onUsePlan={useTmpl} onRepeat={repeatW} bwLog={bwLog} onLogBW={logBW} customPlans={customPlans} customExercises={customExercises} bwUnit={effectiveBwUnit} onSetBwUnit={setBwUnit} streakDays={streakDays}/></ErrorBoundary>}
           {loaded&&tab==="log"&&<ErrorBoundary name="Log" c={c}><LogPageM
             initial={logInit} c={c} unit={unit} logName={logName} finishRef={logFinishRef} onSave={saveW}
             draftExs={draftExs} setDraftExs={setDraftExs}

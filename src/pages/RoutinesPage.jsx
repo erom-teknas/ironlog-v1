@@ -360,6 +360,14 @@ export default function RoutinesPage({c,unit="kg",onUse,customRoutines,onSaveCus
           </div>
         </div>
       ,document.body)}
+    {demoEditorFor&&<DemoEditor
+      exerciseName={demoEditorFor}
+      currentDemo={exerciseDemos[demoEditorFor]||null}
+      c={c}
+      onSave={demo=>{onSetExDemo&&onSetExDemo(demoEditorFor,demo);setDemoEditorFor(null);}}
+      onClear={()=>{onDelExDemo&&onDelExDemo(demoEditorFor);setDemoEditorFor(null);}}
+      onClose={()=>setDemoEditorFor(null)}
+    />}
     </div>
   );
 }
