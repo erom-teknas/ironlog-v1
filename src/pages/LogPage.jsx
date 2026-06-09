@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom';
 import { BAR_TYPES, PLATES_LB, PLATES_KG, PCOL_LB, PCOL } from '../constants';
 import { uid, today, fmtD, calcVol, bestRM, calc1RM, kgToLb, fmtW, storeW, calcPlates, fmtVol, haptic, isCardioEx, getExInputType, isTimedEx } from '../utils';
-import { useConfirm, useFinishDialog } from '../hooks.jsx';
+import { useConfirm, useFinishDialog, useFinishConfirm } from '../hooks.jsx';
 import { ITrash, ICheck, IX, IBell, IStar, IActivity, IPencil, IBarbell, IPlay, IVideo, ICamera } from '../icons';
 import DemoEditor from '../components/DemoEditor';
 import PhotoView from '../components/PhotoView';
@@ -83,6 +83,7 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
   const notes=draftNotes, setNotes=setDraftNotes;
   const {confirm:dlgConfirm,confirmEl}=useConfirm(c);
   const {show:dlgFinish,finishDialogEl}=useFinishDialog(c);
+  const {show:dlgFinishConfirm,finishConfirmEl}=useFinishConfirm(c);
   const [platePickerFor,setPlatePickerFor]=useState(null);
   const [plateConfirmed,setPlateConfirmed]=useState({});
   // Demo / photo state — stores the exercise NAME (since the maps are
@@ -537,6 +538,10 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
     const incompleteSets=exs.reduce((n,e)=>n+e.sets.filter(s=>!s.done&&hasData(s)).length,0);
     console.log("[finish] incompleteSets:",incompleteSets,exs.flatMap(e=>e.sets).map(s=>({done:s.done,w:s.weight,r:s.reps,hd:hasData(s)})));
     let resolvedExs=exs;
+    if(incompleteSets===0){
+      const ok=await dlgFinishConfirm();
+      if(!ok)return;
+    }
     if(incompleteSets>0){
       const choice=await dlgFinish(incompleteSets);
       if(choice==="cancel")return;
@@ -597,7 +602,7 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
 
   return(
     <div style={{overflowX:"hidden",overflowY:"hidden",display:"flex",flexDirection:"column",height:"calc(100dvh - 124px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))"}}>
-      {confirmEl}{finishDialogEl}
+      {confirmEl}{finishDialogEl}{finishConfirmEl}
       {/* ── Sticky workout header ── */}
       <div style={{background:c.bg+"f5",backdropFilter:"saturate(180%) blur(16px)",WebkitBackdropFilter:"saturate(180%) blur(16px)",padding:"5px 16px 6px",borderBottom:"1px solid "+c.border,flexShrink:0}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
