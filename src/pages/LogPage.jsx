@@ -672,6 +672,7 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
                       overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",
                       letterSpacing:"-0.01em",display:"flex",alignItems:"center",gap:6}}>
                       {isCardio&&<span style={{display:"flex",color:c.g}}><IActivity/></span>}
+                      {(()=>{const photo=exercisePhotos[ex.name]?.dataUrl;const ytId=exerciseDemos[ex.name]?.videoId;const thumbSrc=photo||(ytId?`https://img.youtube.com/vi/${ytId}/default.jpg`:null);if(!thumbSrc)return null;return<img src={thumbSrc} alt="" onClick={e=>{e.stopPropagation();if(photo)setPhotoViewFor(ex.name);}} style={{width:28,height:28,borderRadius:6,objectFit:"cover",flexShrink:0,cursor:photo?"pointer":"default",border:"1.5px solid "+c.border}}/>;})()}
                       {ex.name}
                     </div>
                     <div style={{fontSize:12,color:c.sub,marginTop:3,display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
