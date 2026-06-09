@@ -912,7 +912,7 @@ function App(){
         <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
           <button onClick={()=>setUnit(u=>u==="kg"?"lb":"kg")}
             style={{background:c.card2,border:"1px solid "+c.border,borderRadius:10,width:40,height:30,cursor:"pointer",color:c.accent,fontSize:11,fontWeight:800,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",letterSpacing:"0.02em"}}>{unit.toUpperCase()}</button>
-          {tab==="log"&&<button onClick={()=>{haptic("heavy");logFinishRef.current&&logFinishRef.current();}}
+          {tab==="log"&&<button onClick={async()=>{haptic("heavy");logFinishRef.current&&await logFinishRef.current();}}
             style={{border:"none",borderRadius:10,height:30,padding:"0 13px",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:4,background:"linear-gradient(135deg,#7C6EFA,#9b8ffc)",color:"#fff",whiteSpace:"nowrap",boxShadow:"0 4px 16px rgba(124,110,250,0.35)",letterSpacing:"-0.01em"}}>
             <ICheck/>Finish
           </button>}

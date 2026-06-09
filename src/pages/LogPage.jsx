@@ -533,8 +533,9 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
   const finish=async()=>{
     if(!exs.length)return;
     // Count sets with data filled in but not yet marked done
-    const hasData=s=>((parseFloat(s.weight)||0)>0||(parseInt(s.reps)||0)>0||(parseFloat(s.secs)||0)>0||(parseFloat(s.mins)||0)>0);
+    const hasData=s=>((parseFloat(s.weight)||0)>0||(parseInt(s.reps)||0)>0||(parseFloat(s.secs)||0)>0||(parseFloat(s.mins)||0)>0||(parseFloat(s.dist)||0)>0);
     const incompleteSets=exs.reduce((n,e)=>n+e.sets.filter(s=>!s.done&&hasData(s)).length,0);
+    console.log("[finish] incompleteSets:",incompleteSets,exs.flatMap(e=>e.sets).map(s=>({done:s.done,w:s.weight,r:s.reps,hd:hasData(s)})));
     let resolvedExs=exs;
     if(incompleteSets>0){
       const choice=await dlgFinish(incompleteSets);
@@ -564,7 +565,7 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
     onSave({id:uid(),name:(logName||"").trim()||"Workout "+fmtD(today()),date:today(),exercises:exsWithNotes,rating,notes,duration});
     setSaved(true);
   };
-  useEffect(()=>{if(finishRef)finishRef.current=finish;},[exs,rating,notes,logName,saved]);
+  useEffect(()=>{if(finishRef)finishRef.current=finish;},[exs,rating,notes,logName,saved,dlgFinish]);
   const tv=exs.reduce((s,e)=>s+calcVol(e.sets.filter(x=>!x.bodyweight)),0);
   const doneCount=exs.reduce((s,e)=>s+e.sets.filter(x=>x.done).length,0);
   const total=exs.reduce((s,e)=>s+e.sets.length,0);
@@ -1179,8 +1180,8 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
                   {isCardioFocus?"+ Interval":"+ Set"}
                 </button>
                 {allSetsDone
-                  ?<button onClick={validateAndClose} style={{flex:1,background:c.g,border:"none",borderRadius:14,padding:"13px 16px",fontSize:15,fontWeight:800,cursor:"pointer",color:"#fff",fontFamily:"inherit",minHeight:52}}>Done ✓</button>
-                  :<button onClick={markAllDoneAndClose} style={{flex:1,background:c.g+"22",border:"1.5px solid "+c.g+"55",borderRadius:14,padding:"13px 16px",fontSize:15,fontWeight:700,cursor:"pointer",color:c.g,fontFamily:"inherit",minHeight:52}}>Done</button>
+                  ?<button onClick={validateAndClose} style={{flex:1,background:c.g,border:"none",borderRadius:14,padding:"13px 16px",fontSize:15,fontWeight:800,cursor:"pointer",color:"#fff",fontFamily:"inherit",minHeight:52}}>Mark All Done ✓</button>
+                  :<button onClick={markAllDoneAndClose} style={{flex:1,background:c.g+"22",border:"1.5px solid "+c.g+"55",borderRadius:14,padding:"13px 16px",fontSize:15,fontWeight:700,cursor:"pointer",color:c.g,fontFamily:"inherit",minHeight:52}}>Mark All Done</button>
                 }
               </div>
             </div>
