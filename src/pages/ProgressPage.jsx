@@ -25,6 +25,7 @@ export default function ProgressPage({hist,c,unit="kg",bwLog=[],onLogBW,onDelete
   const [range,setRange]=useState("3m");
   const [measInputs,setMeasInputs]=useState({});
   const [pgTab,setPgTab]=useState("strength"); // "strength" | "body" | "activity"
+  const [showAllBw,setShowAllBw]=useState(false);
 
   const now=new Date();
   const rangeMs={"1m":30*864e5,"3m":90*864e5,"6m":180*864e5,"1y":365*864e5,"all":Infinity};
@@ -75,18 +76,30 @@ export default function ProgressPage({hist,c,unit="kg",bwLog=[],onLogBW,onDelete
   const maxVol=Math.max(...weekBars.map(w=>w.vol),1);
   const modeLabel=mode==="weight"?"Max Weight ("+unit+")":mode==="1rm"?"Est. 1RM ("+unit+")":"Volume ("+unit+"×reps)";
 
-  // Body weight chart — uses effectiveBwUnit (independent from lifting unit)
-  const bwDisplay=bwLog.map(e=>({date:e.date,y:effectiveBwUnit==="lb"?Math.round(kgToLb(e.kg)*10)/10:e.kg}));
-  const bwMax=bwDisplay.length?Math.max(...bwDisplay.map(p=>p.y)):100;
-  const bwMin=bwDisplay.length?Math.min(...bwDisplay.map(p=>p.y)):50;
+  // Body weight chart — range-filtered + memoized
+  const filteredBwLog=React.useMemo(()=>{
+    const cutoff=rangeMs[range];
+    if(cutoff===Infinity)return bwLog;
+    return bwLog.filter(e=>(now-new Date(e.date+"T00:00:00"))<=cutoff);
+  },[bwLog,range]);
+  const bwDisplay=React.useMemo(()=>
+    filteredBwLog.map(e=>({date:e.date,y:effectiveBwUnit==="lb"?Math.round(kgToLb(e.kg)*10)/10:e.kg}))
+  ,[filteredBwLog,effectiveBwUnit]);
+  const [bwMax,bwMin]=React.useMemo(()=>[
+    bwDisplay.length?Math.max(...bwDisplay.map(p=>p.y)):100,
+    bwDisplay.length?Math.min(...bwDisplay.map(p=>p.y)):50
+  ],[bwDisplay]);
   const BW=320,BH=100;
-  const bpx=i=>bwDisplay.length<2?BW/2:(i/(bwDisplay.length-1))*BW;
-  const bpy=v=>BH-((v-bwMin+2)/(Math.max(bwMax-bwMin+4,5)))*(BH*0.85);
-  const bwPath=bwDisplay.length>1?bwDisplay.reduce((d,p,i)=>{
+  const bpx=React.useCallback(i=>bwDisplay.length<2?BW/2:(i/(bwDisplay.length-1))*BW,[bwDisplay.length]);
+  const bpy=React.useCallback(v=>BH-((v-bwMin+2)/(Math.max(bwMax-bwMin+4,5)))*(BH*0.85),[bwMin,bwMax]);
+  const bwPath=React.useMemo(()=>bwDisplay.length>1?bwDisplay.reduce((d,p,i)=>{
     if(i===0)return"M"+bpx(i)+","+bpy(p.y);
     const x0=bpx(i-1),y0=bpy(bwDisplay[i-1].y),x1=bpx(i),y1=bpy(p.y),cpx=(x0+x1)/2;
     return d+" C"+cpx+","+y0+" "+cpx+","+y1+" "+x1+","+y1;
-  },""):"";
+  },""):"",[bwDisplay,bpx,bpy]);
+  const visibleBwLog=React.useMemo(()=>
+    showAllBw?[...filteredBwLog].reverse():[...filteredBwLog].reverse().slice(0,5)
+  ,[filteredBwLog,showAllBw]);
 
   // Workout duration trend
   const durationData=React.useMemo(()=>
@@ -344,7 +357,7 @@ export default function ProgressPage({hist,c,unit="kg",bwLog=[],onLogBW,onDelete
         {bwLog.length>0?(
           <CollapsibleSection title="Body Weight" icon={<IScale/>}
             sub={<span style={{display:"flex",alignItems:"center",gap:6}}>
-              <span>{effectiveBwUnit} · {bwLog.length} entr{bwLog.length===1?"y":"ies"}</span>
+              <span>{effectiveBwUnit} · {filteredBwLog.length}{filteredBwLog.length!==bwLog.length?" / "+bwLog.length+" total":""} entr{filteredBwLog.length===1?"y":"ies"}</span>
               {onSetBwUnit&&<button onClick={e=>{e.stopPropagation();onSetBwUnit(effectiveBwUnit==="kg"?"lb":"kg");}}
                 style={{background:"rgba(124,110,250,0.18)",border:"1px solid rgba(124,110,250,0.35)",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:800,cursor:"pointer",color:"#b0a0ff",fontFamily:"inherit",lineHeight:1.5}}>
                 {effectiveBwUnit==="kg"?"→ lb":"→ kg"}
@@ -367,7 +380,7 @@ export default function ProgressPage({hist,c,unit="kg",bwLog=[],onLogBW,onDelete
             {bwDisplay.length===1&&<div style={{fontSize:13,color:c.sub,textAlign:"center",padding:"8px 0"}}>Log more entries to see your trend</div>}
             {/* Weight list — most recent 5, with delta vs previous entry */}
             <div style={{marginTop:4}}>
-              {[...bwLog].reverse().slice(0,5).map((e,i,arr)=>{
+              {visibleBwLog.map((e,i,arr)=>{
                 const disp=effectiveBwUnit==="lb"?Math.round(kgToLb(e.kg)*10)/10:e.kg;
                 const prevKg=arr[i+1]?.kg;
                 const delta=prevKg!=null?(effectiveBwUnit==="lb"?Math.round((kgToLb(e.kg)-kgToLb(prevKg))*10)/10:Math.round((e.kg-prevKg)*10)/10):null;
@@ -381,7 +394,12 @@ export default function ProgressPage({hist,c,unit="kg",bwLog=[],onLogBW,onDelete
                   </div>
                 );
               })}
-              {bwLog.length>5&&<div style={{fontSize:11,color:c.sub,textAlign:"center",padding:"6px 0"}}>+ {bwLog.length-5} more entries</div>}
+              {filteredBwLog.length>5&&(
+                <button onClick={()=>setShowAllBw(v=>!v)}
+                  style={{width:"100%",background:"none",border:"none",cursor:"pointer",fontSize:12,fontWeight:700,color:c.accent,padding:"10px 0",fontFamily:"inherit",textAlign:"center"}}>
+                  {showAllBw?"Show less ▲":"Show all "+filteredBwLog.length+" entries ▼"}
+                </button>
+              )}
             </div>
           </CollapsibleSection>
         ):(
