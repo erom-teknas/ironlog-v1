@@ -531,8 +531,13 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
   const toggleBW=(eid)=>setExs(p=>p.map(e=>e.id!==eid?e:{...e,bodyweight:!e.bodyweight,sets:e.sets.map(s=>({...s,bodyweight:!e.bodyweight,weight:!e.bodyweight?"BW":""}))}));
   const finish=()=>{
     if(!exs.length)return;
-    // Merge per-exercise notes into exs before saving
-    const exsWithNotes=exs.map(e=>exNotes[e.id]!==undefined?{...e,notes:exNotes[e.id]}:e);
+    // Merge per-exercise notes into exs before saving, then drop any
+    // exercises where the user never tapped done on a single set
+    const exsWithNotes=exs
+      .map(e=>exNotes[e.id]!==undefined?{...e,notes:exNotes[e.id]}:e)
+      .filter(e=>e.sets.some(s=>s.done))
+      .map(e=>({...e,sets:e.sets.filter(s=>s.done)}));
+    if(!exsWithNotes.length)return;
     // Detect PR: any exercise with a new best 1RM vs historical
     const latestBwKgF=bwLog.length?bwLog[bwLog.length-1].kg:0;
     const hasPR=exsWithNotes.some(ex=>{
