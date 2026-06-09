@@ -566,15 +566,26 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
     setSaved(true);
   };
   useEffect(()=>{if(finishRef)finishRef.current=finish;},[exs,rating,notes,logName,saved,dlgFinish]);
-  // Compute recently used exercises from history (ordered most-recent first, deduped)
+  // Compute recent exercises: prefer sessions on the same weekday across all history.
+  // Falls back to last 8 sessions if fewer than 4 same-weekday exercises found.
   const recentExercises=React.useMemo(()=>{
+    const todayDow=new Date().getDay();
+    const sameDaySessions=hist.filter(w=>new Date(w.date+'T00:00:00').getDay()===todayDow);
     const seen=new Set();
     const result=[];
-    for(let i=hist.length-1;i>=0&&result.length<8;i--){
-      const w=hist[i];
-      for(const ex of(w.exercises||[])){
+    // First pass: same-weekday sessions (most recent first)
+    for(let i=sameDaySessions.length-1;i>=0;i--){
+      for(const ex of(sameDaySessions[i].exercises||[])){
         if(!seen.has(ex.name)){seen.add(ex.name);result.push({name:ex.name,muscle:ex.muscle||''});}
-        if(result.length>=8)break;
+      }
+    }
+    // Fallback: if fewer than 4 same-day exercises, top up from last 8 sessions
+    if(result.length<4){
+      for(let i=hist.length-1;i>=0&&result.length<12;i--){
+        for(const ex of(hist[i].exercises||[])){
+          if(!seen.has(ex.name)){seen.add(ex.name);result.push({name:ex.name,muscle:ex.muscle||''});}
+          if(result.length>=12)break;
+        }
       }
     }
     return result;

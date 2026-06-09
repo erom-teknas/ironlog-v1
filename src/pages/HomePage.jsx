@@ -4,7 +4,7 @@ import CollapsibleSection from '../components/CollapsibleSection';
 import MuscleMap from '../components/MuscleMap';
 import { IPlus, IGrid, ILog, IScale } from '../icons';
 
-export default function HomePage({ hist, dark, c, unit = 'kg', onBlank, onPlan, onUsePlan, bwLog = [], onLogBW, bwUnit, onSetBwUnit, customPlans = [], customExercises = {}, streakDays = 1 }) {
+export default function HomePage({ hist, dark, c, unit = 'kg', onBlank, onPlan, onUsePlan, onRepeat, bwLog = [], onLogBW, bwUnit, onSetBwUnit, customPlans = [], customExercises = {}, streakDays = 1 }) {
   const effectiveBwUnit = bwUnit || unit;
   const [bwInput, setBwInput] = useState('');
   // Separate input state for the quick-log row in the hero card so typing
@@ -22,7 +22,20 @@ export default function HomePage({ hist, dark, c, unit = 'kg', onBlank, onPlan, 
 
   const streak = getStreak(hist, streakDays), now = new Date();
   const weekVol = hist.filter(w => (now - new Date(w.date)) / 86400000 <= 7).reduce((s, w) => s + w.exercises.reduce((a, e) => a + calcVol(e.sets), 0), 0);
-  const last = hist.length ? hist[hist.length - 1] : null;
+  // Find the most recent workout on the same weekday, at least 14 days ago.
+  // Falls back to the most recent workout overall if no same-weekday match exists.
+  const sameDayLast = (() => {
+    const todayDow = now.getDay();
+    const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 14);
+    for (let i = hist.length - 1; i >= 0; i--) {
+      const w = hist[i];
+      const d = new Date(w.date + 'T00:00:00');
+      if (d.getDay() === todayDow && d <= cutoff) return w;
+    }
+    return null;
+  })();
+  const last = sameDayLast || (hist.length ? hist[hist.length - 1] : null);
+  const lastIsSameDay = !!sameDayLast;
   const todayM = [...new Set(hist.filter(w => w.date === today()).flatMap(w => w.exercises.map(e => e.muscle)))];
   const hr = new Date().getHours(), greet = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
 
@@ -249,7 +262,7 @@ export default function HomePage({ hist, dark, c, unit = 'kg', onBlank, onPlan, 
 
           {/* ── Last Workout ── */}
           {last && (
-            <CollapsibleSection title="Last Workout" icon={<ILog/>} sub={last.name ? last.name + ' · ' + fmtD(last.date) : fmtD(last.date)} c={c}>
+            <CollapsibleSection title={lastIsSameDay ? 'Last ' + ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][now.getDay()] + ' Workout' : 'Last Workout'} icon={<ILog/>} sub={last.name ? last.name + ' · ' + fmtD(last.date) : fmtD(last.date)} c={c}>
               {last.exercises.slice(0, 3).map((ex, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '6px 0', borderTop: '1px solid ' + c.border, color: c.sub }}>
                   <span style={{ color: c.text, fontWeight: 600 }}>{ex.name}</span>
@@ -257,6 +270,12 @@ export default function HomePage({ hist, dark, c, unit = 'kg', onBlank, onPlan, 
                 </div>
               ))}
               {last.exercises.length > 3 && <div style={{ fontSize: 12, color: c.sub, marginTop: 5 }}>+{last.exercises.length - 3} more</div>}
+              {onRepeat && (
+                <button onClick={() => onRepeat(last)}
+                  style={{ marginTop: 10, width: '100%', background: c.card2, border: '1.5px solid ' + c.border, borderRadius: 12, padding: '10px', fontSize: 13, fontWeight: 800, cursor: 'pointer', color: c.text, fontFamily: 'inherit', letterSpacing: '-0.01em' }}>
+                  🔁 Repeat This Workout
+                </button>
+              )}
             </CollapsibleSection>
           )}
 

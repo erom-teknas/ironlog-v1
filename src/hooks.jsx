@@ -76,13 +76,9 @@ export function useFinishDialog(c){
           {state.incompleteSets} set{state.incompleteSets!==1?'s':''} — data filled in but not marked done.
         </div>
         <div style={{display:'flex',flexDirection:'column',gap:8}}>
-          <button onClick={()=>{haptic('medium');respond('markdone');}}
-            style={{background:c.accent,border:'none',borderRadius:13,padding:'14px',fontSize:14,fontWeight:800,cursor:'pointer',color:'#fff',fontFamily:'inherit',minHeight:44}}>
-            ✓ Mark all as done &amp; save
-          </button>
           <button onClick={()=>{haptic('medium');respond('asis');}}
-            style={{background:c.card2,border:'1.5px solid '+c.border,borderRadius:13,padding:'14px',fontSize:14,fontWeight:800,cursor:'pointer',color:c.text,fontFamily:'inherit',minHeight:44}}>
-            Save only completed sets
+            style={{background:c.accent,border:'none',borderRadius:13,padding:'14px',fontSize:14,fontWeight:800,cursor:'pointer',color:'#fff',fontFamily:'inherit',minHeight:44}}>
+            Save ticked sets, skip the rest
           </button>
           <button onClick={()=>{haptic('light');respond('cancel');}}
             style={{background:'transparent',border:'none',borderRadius:13,padding:'13px',fontSize:13,fontWeight:700,cursor:'pointer',color:c.sub,fontFamily:'inherit',minHeight:44}}>
