@@ -1209,10 +1209,6 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
                 <button onClick={()=>addS(ex.id)} style={{flex:1,background:c.accent+"22",border:"1.5px solid "+c.accent+"55",borderRadius:14,padding:"13px 16px",fontSize:15,fontWeight:700,cursor:"pointer",color:c.accent,fontFamily:"inherit",minHeight:52}}>
                   {isCardioFocus?"+ Interval":"+ Set"}
                 </button>
-                {allSetsDone
-                  ?<button onClick={validateAndClose} style={{flex:1,background:c.g,border:"none",borderRadius:14,padding:"13px 16px",fontSize:15,fontWeight:800,cursor:"pointer",color:"#fff",fontFamily:"inherit",minHeight:52}}>Mark All Done ✓</button>
-                  :<button onClick={markAllDoneAndClose} style={{flex:1,background:c.g+"22",border:"1.5px solid "+c.g+"55",borderRadius:14,padding:"13px 16px",fontSize:15,fontWeight:700,cursor:"pointer",color:c.g,fontFamily:"inherit",minHeight:52}}>Mark All Done</button>
-                }
               </div>
             </div>
             </div>
