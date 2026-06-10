@@ -44,6 +44,7 @@ export default function ExercisePicker({
   const [newExType, setNewExType] = useState("weighted");
   const [editingEx, setEditingEx] = useState(null);
   const [editExVal, setEditExVal] = useState("");
+  const [showAllRecent, setShowAllRecent] = useState(false);
   const { confirm: dlgConfirm, confirmEl } = useConfirm(c);
 
   // ── Lazy-load exercise list ─────────────────────────────────────────────────
@@ -176,24 +177,40 @@ export default function ExercisePicker({
         </div>
 
         {/* ── SCREEN 1: Muscle Group Grid ── */}
-        {pickerScreen === "grid" && !searchLower && recentExercises.length > 0 && (
-          <div style={{flexShrink:0,padding:"0 16px 4px"}}>
-            <div style={{fontSize:11,fontWeight:700,color:c.sub,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:8}}>Recent</div>
-            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-              {recentExercises.map(ex=>(
-                <button key={ex.name} onClick={()=>{onAddEx(ex.name,ex.muscle);onClose();}}
-                  style={{background:c.card2,border:"1px solid "+c.border,borderRadius:20,
-                    padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",
-                    color:c.text,fontFamily:"inherit",minHeight:32,whiteSpace:"nowrap",
-                    display:"flex",alignItems:"center",gap:4}}>
-                  {ex.name}
-                  {ex.muscle&&<span style={{fontSize:10,color:c.sub,fontWeight:600}}>{ex.muscle}</span>}
-                </button>
-              ))}
+        {pickerScreen === "grid" && !searchLower && recentExercises.length > 0 && (() => {
+          const ROW_SIZE = 8;
+          const row1 = recentExercises.slice(0, ROW_SIZE);
+          const row2 = recentExercises.slice(ROW_SIZE, ROW_SIZE * 2);
+          const row3 = recentExercises.slice(ROW_SIZE * 2, ROW_SIZE * 3);
+          const hasMore = recentExercises.length > ROW_SIZE;
+          const chipBtn = (ex) => (
+            <button key={ex.name} onClick={()=>{onAddEx(ex.name,ex.muscle);onClose();}}
+              style={{background:c.card2,border:"1px solid "+c.border,borderRadius:20,
+                padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",
+                color:c.text,fontFamily:"inherit",minHeight:32,whiteSpace:"nowrap",flexShrink:0,
+                display:"flex",alignItems:"center",gap:4}}>
+              {ex.name}
+              {ex.muscle&&<span style={{fontSize:10,color:c.sub,fontWeight:600}}>{ex.muscle}</span>}
+            </button>
+          );
+          const rowStyle = {display:"flex",flexWrap:"nowrap",gap:6,overflowX:"auto",overflowY:"hidden",
+            WebkitOverflowScrolling:"touch",paddingLeft:16,paddingRight:16,scrollbarWidth:"none"};
+          return (
+            <div style={{flexShrink:0,padding:"0 0 4px"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",paddingLeft:16,paddingRight:16,marginBottom:8}}>
+                <div style={{fontSize:11,fontWeight:700,color:c.sub,letterSpacing:"0.06em",textTransform:"uppercase"}}>Recent</div>
+                {hasMore&&<button onClick={()=>setShowAllRecent(v=>!v)}
+                  style={{background:"none",border:"none",fontSize:11,fontWeight:700,color:c.accent,cursor:"pointer",fontFamily:"inherit",padding:0}}>
+                  {showAllRecent?"Show less":"Show more"}
+                </button>}
+              </div>
+              <div style={{...rowStyle,marginBottom:showAllRecent&&row2.length?6:0}}>{row1.map(chipBtn)}</div>
+              {showAllRecent&&row2.length>0&&<div style={{...rowStyle,marginTop:6,marginBottom:row3.length?6:0}}>{row2.map(chipBtn)}</div>}
+              {showAllRecent&&row3.length>0&&<div style={{...rowStyle,marginTop:6}}>{row3.map(chipBtn)}</div>}
+              <div style={{height:1,background:c.border,margin:"12px 0 4px"}}/>
             </div>
-            <div style={{height:1,background:c.border,margin:"12px 0 4px"}}/>
-          </div>
-        )}
+          );
+        })()}
         {pickerScreen === "grid" && !searchLower && (
           <div style={{
             flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch",
