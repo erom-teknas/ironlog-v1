@@ -251,6 +251,7 @@ function App(){
   // workoutT0: null until the user marks their FIRST set done.
   // This prevents idle browsing time (opening the app pre-gym) from inflating duration.
   const draftWorkoutT0=useRef(null);
+  const cardioOffsetSecs=useRef(0);
   const hasDraft=draftExs.length>0;
   // ── Collapsed exercises state lifted so it persists across tab switches ───
   const [collapsedExs,setCollapsedExs]=useState(new Set());
@@ -347,7 +348,7 @@ function App(){
   useEffect(()=>{idbSet("il_dark",dark);lsSet("il_dark",dark);},[dark]);
   useEffect(()=>{idbSet("il_unit",unit);try{localStorage.setItem("il_unit",JSON.stringify(unit));}catch(e){};},[unit]);
   const [milestone,setMilestone]=useState(null);
-  const clearDraft=()=>{setDraftExs([]);setDraftRating(0);setDraftNotes("");setLogName("");setLogInit(null);setCollapsedExs(new Set());draftT0.current=Date.now();draftWorkoutT0.current=null;idbSet("il_draft",null);};
+  const clearDraft=()=>{setDraftExs([]);setDraftRating(0);setDraftNotes("");setLogName("");setLogInit(null);setCollapsedExs(new Set());draftT0.current=Date.now();draftWorkoutT0.current=null;cardioOffsetSecs.current=0;idbSet("il_draft",null);};
   const [summaryWorkout,setSummaryWorkout]=useState(null); // shown after finish
   const saveW=w=>{
     dispatch({type:'SAVE_WORKOUT',workout:w});
@@ -930,7 +931,7 @@ function App(){
             draftRating={draftRating} setDraftRating={setDraftRating}
             draftNotes={draftNotes} setDraftNotes={setDraftNotes}
             draftT0={draftT0}
-            draftWorkoutT0={draftWorkoutT0}
+            draftWorkoutT0={draftWorkoutT0} cardioOffsetSecs={cardioOffsetSecs}
             onDiscard={clearDraft}
             timerSecs={timerSecs} timerStart={timerStart} lastTimerSecs={lastTimerSecs}
             startTimer={startTimer} cycleTimer={cycleTimer} stopTimer={stopTimer}

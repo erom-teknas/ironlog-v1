@@ -70,7 +70,7 @@ function requestNotifPermission(){
 
 export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSave,
   draftExs,setDraftExs,draftRating,setDraftRating,draftNotes,setDraftNotes,
-  draftT0,draftWorkoutT0,onDiscard,timerSecs,timerStart,lastTimerSecs=60,startTimer,cycleTimer,stopTimer,
+  draftT0,draftWorkoutT0,cardioOffsetSecs,onDiscard,timerSecs,timerStart,lastTimerSecs=60,startTimer,cycleTimer,stopTimer,
   customExercises={},customExTypes={},onAddCustomEx,onDeleteCustomEx,onRenameCustomEx,hist=[],gymPlates=[],bwLog=[],
   restPresets={},onSaveRestPreset,
   collapsedExs,setCollapsedExs,
@@ -478,9 +478,15 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
       }
       const next=p.map(e=>e.id!==eid?e:{...e,sets:e.sets.map(s=>s.id!==sid?s:{...s,done:!s.done})});
       if(justCompleted){
-        // Start the workout clock on first ever set completion
-        if(draftWorkoutT0&&!draftWorkoutT0.current){
-          draftWorkoutT0.current=Date.now();
+        if(prevEx?.isCardio){
+          // Cardio: accumulate entered mins instead of wall clock
+          const setMins=parseFloat(prevSet?.mins)||0;
+          if(setMins>0) cardioOffsetSecs.current=(cardioOffsetSecs?.current||0)+Math.round(setMins*60);
+        } else {
+          // Strength/timed: start wall clock on first set tick
+          if(draftWorkoutT0&&!draftWorkoutT0.current){
+            draftWorkoutT0.current=Date.now();
+          }
         }
         haptic("medium");
         if(autoRest&&!prevEx?.isCardio&&!prevEx?.isTimed){
@@ -566,7 +572,8 @@ export default function LogPage({initial:init,c,unit="kg",logName,finishRef,onSa
     if(hasPR)setShowConfetti(true);
     // elapsedSec no longer lives here — duration is always derived from the ref directly.
     // draftWorkoutT0.current is set on first set completion so it's always present at save time.
-    const duration=draftWorkoutT0?.current?Math.floor((Date.now()-draftWorkoutT0.current)/1000):0;
+    const wallSecs=draftWorkoutT0?.current?Math.floor((Date.now()-draftWorkoutT0.current)/1000):0;
+    const duration=wallSecs+(cardioOffsetSecs?.current||0);
     onSave({id:uid(),name:(logName||"").trim()||"Workout "+fmtD(today()),date:today(),exercises:exsWithNotes,rating,notes,duration});
     setSaved(true);
   };

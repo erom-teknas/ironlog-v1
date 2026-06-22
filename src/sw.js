@@ -1,7 +1,7 @@
 // IronLog Service Worker — cache-first + rest timer notifications
 // self.__WB_MANIFEST is injected by vite-plugin-pwa with all built asset URLs
 
-var CACHE = 'ironlog-1781040071235'; // feat: Mark All Done button + 3-way finish dialog for incomplete sets
+var CACHE = 'ironlog-1782095012169'; // feat: Mark All Done button + 3-way finish dialog for incomplete sets
 
 self.addEventListener('install', function(e) {
   var entries = self.__WB_MANIFEST || [];
